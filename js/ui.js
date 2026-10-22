@@ -71,9 +71,17 @@ export function createEditor({ placeholder = '', onEnter, initial = '', compact 
       try { field.inlineShortcuts = {}; field.menuItems = []; } catch { /* eldri útgáfur */ }
     });
     if (initial) field.value = initial;
+    // MathLive giskar á lyklaborð út frá staðsetningu takkans (e.code). Á íslensku lyklaborði
+    // er + á sama stað og \ á bandarísku, svo + gat opnað LaTeX-ham. Við setjum því sjálf inn
+    // stafinn sem lyklaborðið gefur (e.key). Bakskástrik er alltaf hunsað.
     field.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') { e.preventDefault(); onEnter && onEnter(); }
-    });
+      if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); onEnter && onEnter(); return; }
+      if (e.isComposing || e.key.length !== 1 || e.metaKey || (e.ctrlKey && !e.altKey)) return;
+      e.preventDefault();
+      e.stopPropagation();
+      if (e.key === '\\') return;
+      field.executeCommand(['typedText', e.key]);
+    }, true);
     api = {
       getValue: () => field.value,
       setValue: (v) => { field.value = v; },
