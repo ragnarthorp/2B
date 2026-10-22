@@ -323,3 +323,27 @@ math-field::part(virtual-keyboard-toggle) { color: var(--muted); }
 .term-chip:hover { border-color: rgba(255,255,255,.5); }
 .term-chip:active { transform: scale(.95); }
 .term-chip.colored { border: 2px solid var(--c); color: var(--c); background: color-mix(in srgb, var(--c) 22%, transparent); }
+
+/* Vasareiknir við hlið ritilsins */
+.editor.with-calc { display: grid; grid-template-columns: 1fr 230px; gap: 14px; align-items: start; }
+.editor-main { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+@media (max-width: 640px) { .editor.with-calc { grid-template-columns: 1fr; } }
+.key.calc-toggle.on { background: var(--yellow); color: var(--space-1); }
+.mini-calc {
+  background: rgba(11, 15, 58, 0.6); border-radius: 18px; padding: 10px;
+  display: flex; flex-direction: column; gap: 8px; outline: none;
+}
+.mini-calc:focus-visible { box-shadow: 0 0 0 2px var(--yellow); }
+.mc-display { background: rgba(0,0,0,.25); border-radius: 12px; padding: 6px 10px; text-align: right; min-height: 58px; }
+.mc-expr { font-size: 1.15rem; font-weight: 700; word-break: break-all; }
+.mc-result { color: var(--yellow); font-weight: 900; font-size: 1.2rem; min-height: 1.3em; }
+.mc-keys { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.mc-key {
+  height: 40px; border-radius: 10px; border: 0; cursor: pointer;
+  background: var(--surface-3); color: var(--text); font: inherit; font-weight: 800; font-size: 1.05rem;
+  box-shadow: 0 3px 0 rgba(0,0,0,.25);
+}
+.mc-key:active { transform: translateY(2px); box-shadow: 0 1px 0 rgba(0,0,0,.25); }
+.mc-key.op { background: var(--purple); }
+.mc-key.eq { background: var(--orange); color: #2a1200; }
+.mc-insert { font-size: 0.85rem; padding: 8px 10px; }

@@ -128,9 +128,106 @@ export function createEditor({ placeholder = '', onEnter, initial = '', compact 
       onclick: () => api.insert(k),
     }, k.label)));
 
-  wrap.append(field, bar);
+  // Lítill vasareiknir fyrir einfaldar tölur
+  const calc = miniCalc((text) => api.insert({ tex: text, text }));
+  calc.hidden = true;
+  const calcBtn = el('button', {
+    type: 'button', class: 'key calc-toggle', title: 'Vasareiknir', 'aria-expanded': 'false',
+    onclick: () => {
+      calc.hidden = !calc.hidden;
+      calcBtn.setAttribute('aria-expanded', String(!calc.hidden));
+      calcBtn.classList.toggle('on', !calc.hidden);
+      wrap.classList.toggle('with-calc', !calc.hidden);
+    },
+  }, '🧮');
+  bar.insertBefore(calcBtn, bar.querySelector('.wide'));
+
+  wrap.append(el('div', { class: 'editor-main' }, field, bar), calc);
   api.root = wrap;
   return api;
+}
+
+// ---------- Vasareiknir ----------
+
+// Reiknar +, −, ×, ÷ og sviga án eval. Skilar tölu eða kastar villu.
+function evalArithmetic(src) {
+  const s = src.replace(/,/g, '.').replace(/[×·*]/g, '*').replace(/[÷:/]/g, '/').replace(/[−–]/g, '-').replace(/\s+/g, '');
+  let i = 0;
+  const peek = () => s[i];
+  function expr() {
+    let v = term();
+    while (peek() === '+' || peek() === '-') { const op = s[i++]; const r = term(); v = op === '+' ? v + r : v - r; }
+    return v;
+  }
+  function term() {
+    let v = factor();
+    while (peek() === '*' || peek() === '/') {
+      const op = s[i++]; const r = factor();
+      if (op === '/' && r === 0) throw new Error('Ekki hægt að deila með núlli');
+      v = op === '*' ? v * r : v / r;
+    }
+    return v;
+  }
+  function factor() {
+    if (peek() === '-') { i++; return -factor(); }
+    if (peek() === '+') { i++; return factor(); }
+    if (peek() === '(') { i++; const v = expr(); if (s[i++] !== ')') throw new Error('Vantar sviga'); return v; }
+    const m = /^\d+(\.\d+)?/.exec(s.slice(i));
+    if (!m) throw new Error('Villa');
+    i += m[0].length;
+    return parseFloat(m[0]);
+  }
+  const v = expr();
+  if (i < s.length) throw new Error('Villa');
+  return v;
+}
+
+const fmtNum = (v) => String(Math.round(v * 1e10) / 1e10).replace('.', ',').replace('-', '−');
+
+function miniCalc(onInsert) {
+  let expr = '';
+  let result = null;
+  const shown = el('div', { class: 'mc-expr', 'aria-live': 'polite' });
+  const res = el('div', { class: 'mc-result' });
+  const update = () => {
+    shown.textContent = expr || '0';
+    res.textContent = result === null ? '' : '= ' + result;
+  };
+  const press = (k) => {
+    if (k === 'C') { expr = ''; result = null; }
+    else if (k === '⌫') { expr = expr.slice(0, -1); }
+    else if (k === '=') {
+      try { result = fmtNum(evalArithmetic(expr)); } catch (e) { result = e.message; }
+    } else {
+      if (result !== null && /[0-9(]/.test(k) && !/[+−×÷(]$/.test(expr)) expr = '';
+      result = null;
+      expr += k;
+    }
+    update();
+  };
+  const keys = ['C', '(', ')', '÷', '7', '8', '9', '×', '4', '5', '6', '−', '1', '2', '3', '+', '0', ',', '⌫', '='];
+  const pad = el('div', { class: 'mc-keys' }, keys.map((k) => el('button', {
+    type: 'button', class: 'mc-key' + (/[÷×−+=]/.test(k) ? ' op' : '') + (k === '=' ? ' eq' : ''),
+    onmousedown: (e) => e.preventDefault(),
+    onclick: () => press(k),
+  }, k)));
+  const insert = el('button', {
+    type: 'button', class: 'btn ghost mc-insert',
+    onmousedown: (e) => e.preventDefault(),
+    onclick: () => {
+      if (result === null) press('=');
+      if (result !== null && /^[−\d]/.test(result)) onInsert(result.replace('−', '-').replace(',', '.'));
+    },
+  }, 'Setja útkomu í ritilinn');
+  const box = el('div', { class: 'mini-calc', role: 'group', 'aria-label': 'Vasareiknir', tabindex: '0',
+    onkeydown: (e) => {
+      const map = { '*': '×', '/': '÷', '-': '−', Enter: '=', Backspace: '⌫', Escape: 'C', '.': ',' };
+      const k = map[e.key] || e.key;
+      if (keys.includes(k)) { e.preventDefault(); press(k); }
+    } },
+    el('div', { class: 'mc-display' }, shown, res), pad, insert);
+  update();
+  return box;
 }
 
 // ---------- Myndir (flatar vektormyndir) ----------
