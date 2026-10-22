@@ -94,19 +94,36 @@ function chapterView(id, tab, param) {
     el('h1', {}, el('span', { class: 'num' }, c.id), ' ', c.title), nav, body);
 }
 
+function exampleCard(c, ex, heading) {
+  const node = parse(ex.expr);
+  return el('section', { class: 'example' },
+    el('h2', {}, heading),
+    problemHeader({ prompt: ex.prompt || 'Einfaldaðu eins og hægt er:', expr: ex.expr, figure: ex.figure }),
+    el('div', { class: 'solution' }, stepsView(node, { showStart: false })),
+    ex.note ? el('p', { class: 'tip' }, el('b', {}, 'Athugið: '), ex.note) : null,
+    el('a', { class: 'btn ghost', href: `#/kafli/${c.id}/aefing/${encodeURIComponent(ex.expr)}` }, 'Reikna þetta sjálf/ur í skrefum →'));
+}
+
 function examplesView(c) {
   const wrap = el('div', {});
   wrap.append(el('section', { class: 'theory', html: richHtml(c.intro) }));
-  c.examples.forEach((ex, i) => {
-    const node = parse(ex.expr);
-    const solution = el('div', { class: 'solution' }, stepsView(node, { showStart: false }));
-    wrap.append(el('section', { class: 'example' },
-      el('h2', {}, `Sýnidæmi ${i + 1}`),
-      problemHeader({ prompt: ex.prompt || 'Einfaldaðu eins og hægt er:', expr: ex.expr, figure: ex.figure }),
-      solution,
-      ex.note ? el('p', { class: 'tip' }, el('b', {}, 'Athugið: '), ex.note) : null,
-      el('a', { class: 'btn ghost', href: `#/kafli/${c.id}/aefing/${encodeURIComponent(ex.expr)}` }, 'Reikna þetta sjálf/ur í skrefum →')));
-  });
+  c.examples.forEach((ex, i) => wrap.append(exampleCard(c, ex, `Sýnidæmi ${i + 1}`)));
+
+  // Ný sýnidæmi af handahófi
+  let level = 0, n = 0;
+  const generated = el('div', {});
+  const more = () => {
+    n++;
+    const card = exampleCard(c, generate(c.id, level), `Nýtt sýnidæmi ${n}`);
+    generated.append(card);
+    card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+  wrap.append(generated, el('section', { class: 'panel' },
+    el('h2', {}, 'Fleiri sýnidæmi'),
+    el('p', {}, 'Búðu til nýtt dæmi af handahófi og sjáðu lausnina skref fyrir skref.'),
+    el('div', { class: 'row' },
+      el('label', {}, 'Erfiðleikastig ', levelSelect(level, (v) => { level = v; })),
+      el('button', { class: 'btn', onclick: more }, 'Búa til nýtt sýnidæmi'))));
   return wrap;
 }
 
@@ -121,10 +138,18 @@ function calculatorView(c) {
     out.append(stepsView(r.node));
   };
   const ed = createEditor({ placeholder: 't.d. 2x(x+3)-(x-1)^2', onEnter: run });
+  const randomProblem = () => {
+    const p = generate(c ? c.id : CHAPTERS[Math.floor(Math.random() * CHAPTERS.length)].id, 0);
+    ed.setValue(toTex(parse(p.expr)));
+    out.innerHTML = '';
+    ed.focus();
+  };
   return el('section', { class: 'panel' },
     el('p', {}, c ? 'Skrifaðu inn þitt eigið dæmi. Reiknivélin einfaldar það og sýnir hvert skref.' : 'Skrifaðu inn dæmi með liðastærðum. Reiknivélin einfaldar það og sýnir hvert skref.'),
     ed.root,
-    el('div', { class: 'row' }, el('button', { class: 'btn', onclick: run }, 'Reikna')),
+    el('div', { class: 'row' },
+      el('button', { class: 'btn', onclick: run }, 'Reikna'),
+      el('button', { class: 'btn ghost', onclick: randomProblem }, 'Fá dæmi af handahófi')),
     out);
 }
 

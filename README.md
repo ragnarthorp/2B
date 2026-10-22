@@ -13,7 +13,7 @@ Kaflar sem eru komnir:
 | Kafli | Efni |
 |---|---|
 | 1.1 | Samlagning liðastærða |
-| 1.2 | Margföldun liðastærða |
+| 2.1 | Margföldun liðastærða |
 
 ## Ritillinn
 

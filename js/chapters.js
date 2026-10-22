@@ -29,7 +29,7 @@ export const CHAPTERS = [
     ],
   },
   {
-    id: '1.2',
+    id: '2.1',
     title: 'Margföldun liðastærða',
     intro: `
       <p>Þegar liðastærð er margfölduð með liðastærð er <b>hver liður í fyrri svigunum margfaldaður með hverjum lið í seinni svigunum</b>. Síðan eru líkir liðir teknir saman.</p>

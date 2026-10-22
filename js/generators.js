@@ -120,9 +120,9 @@ const ch11 = [
   },
 ];
 
-// ---------- 1.2 Margföldun liðastærða ----------
+// ---------- 2.1 Margföldun liðastærða ----------
 
-const ch12 = [
+const ch21 = [
   {
     level: 1,
     make() {
@@ -213,7 +213,7 @@ const ch12 = [
   },
 ];
 
-export const GENERATORS = { '1.1': ch11, '1.2': ch12 };
+export const GENERATORS = { '1.1': ch11, '2.1': ch21 };
 
 // level: 1, 2, 3 eða 0 (blandað)
 export function generate(chapterId, level = 0) {
