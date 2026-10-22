@@ -378,7 +378,8 @@ export function toTex(n) {
       let out = '';
       n.f.forEach((f, i) => {
         const par = needsParensInMul(f, i === 0);
-        const ft = par ? '\\left(' + toTex(f) + '\\right)' : toTex(f);
+        let ft = par ? '\\left(' + toTex(f) + '\\right)' : toTex(f);
+        if (n.hl && i === 0) ft = '\\textcolor{' + HL_COLOR + '}{' + ft + '}';
         if (i > 0) {
           const prev = n.f[i - 1];
           const prevPar = needsParensInMul(prev, i === 1);
@@ -421,8 +422,11 @@ export function toTex(n) {
   return '?';
 }
 
+// Litur á þann sem er margfaldaður inn í sviga
+export const HL_COLOR = '#ff9f43';
+
 // Litir fyrir líka liði (virka bæði í ljósu og dökku þema)
-export const LIKE_COLORS = ['#e8590c', '#1c7ed6', '#2b8a3e', '#ae3ec9', '#d6336c', '#0c8599', '#e67700'];
+export const LIKE_COLORS = ['#4dabf7', '#ffd43b', '#69db7c', '#ff8cc6', '#b197fc', '#3bc9db', '#ffa94d'];
 
 // Litur hvers liðar í summu; liðir sem standa einir fá engan lit.
 function likeTermColors(n) {
@@ -450,18 +454,21 @@ export function toText(n) {
 
 export const STEP_TEXT = {
   pow: 'Skrifum veldið sem margfeldi, t.d. (a+b)² = (a+b)(a+b).',
-  dist: 'Margföldum inn í svigann: hver liður er margfaldaður með hverjum lið.',
+  dist: 'Margföldum inn í svigann: liðurinn fyrir framan (litaður) margfaldast við hvern lið í svigunum. Gætum að formerkjunum.',
+  dist1: 'Sviga sinnum sviga: tökum fyrsta liðinn í fyrri svigunum (litaður) og margföldum hann við hvern lið í seinni svigunum. Afganginn geymum við í næsta skref.',
   mono: 'Skrifum margfeldið sem einn lið, t.d. 3·x = 3x.',
   mpow: 'Veldi þýðir endurtekin margföldun: (2x)² = 2x·2x.',
   msign: 'Byrjum á formerkinu. Teljum mínusana: slétt tala af mínusum gefur plús, oddatala gefur mínus.',
   morder: 'Röðum þáttunum: tölurnar fremst og sömu breytur saman í stafrófsröð. Röð þátta skiptir ekki máli í margföldun.',
   mnum: 'Margföldum tölurnar saman.',
   mvar: 'Margföldum sömu breytur saman með því að leggja saman veldisvísana (x·x = x², a²·a = a³).',
-  paren: 'Leysum upp sviga. Mínus fyrir framan sviga breytir formerki allra liða inni í svigunum.',
+  paren: 'Leysum upp sviga. Mínus fyrir framan sviga snýr við formerki allra liða í svigunum (+ verður − og − verður +). Plús fyrir framan sviga breytir engu.',
   color: 'Finnum líka liði og litum þá eins: líkir liðir hafa sömu breytur í sömu veldum.',
   group: 'Röðum líkum liðum saman (liðir með sömu breytur í sömu veldum).',
   combine: 'Tökum saman líka liði: leggjum saman stuðlana en breyturnar haldast óbreyttar.',
 };
+
+const STEP_RANK = { pow: 0, mpow: 0, dist1: 1, dist: 1, paren: 2, msign: 3, morder: 4, mnum: 5, mvar: 6, mono: 7, color: 8, group: 9, combine: 10 };
 
 const mkMul = (fs) => {
   const f = [];
@@ -477,10 +484,29 @@ function signedTerms(n) {
 }
 
 
-function distribute(A, B) {
+const signedText = (s, a) => (s < 0 ? '−' : '') + toText(a);
+
+// Margföldun inn í sviga. Ef A er sjálf summa er bara fyrsti liður hennar margfaldaður inn
+// í B í þessu skrefi; afgangurinn bíður næsta skrefs.
+function distribute(A, B, kinds) {
   const ta = signedTerms(A), tb = signedTerms(B);
-  const ts = [];
-  for (const [sa, a] of ta) for (const [sb, b] of tb) ts.push({ s: sa * sb, n: { t: 'mul', f: [a, b], prod: true } });
+  const [sa, a] = ta[0];
+  const ts = tb.map(([sb, b]) => ({ s: sa * sb, n: { t: 'mul', f: [a, b], prod: true, hl: true } }));
+  const bText = '(' + toText(B) + ')';
+  if (ta.length === 1) {
+    kinds.add('dist');
+    note(kinds, `${signedText(sa, a)} sinnum hvern lið í ${bText}`);
+  } else {
+    kinds.add('dist1');
+    note(kinds, `Fyrst: ${signedText(sa, a)} sinnum hvern lið í ${bText}`);
+    const rest = ta.slice(1);
+    if (rest.length === 1) {
+      const [sr, r] = rest[0];
+      ts.push({ s: sr, n: { t: 'mul', f: [r, B] } });
+    } else {
+      ts.push({ s: 1, n: { t: 'mul', f: [{ t: 'add', ts: rest.map(([x, y]) => ({ s: x, n: y })) }, B] } });
+    }
+  }
   return ts.length === 1 && ts[0].s === 1 ? ts[0].n : { t: 'add', ts, flat: true };
 }
 
@@ -649,7 +675,9 @@ function pass(n, kinds, negate = false) {
       }
       if (n.e === 1) { kinds.add('pow'); return b; }
       kinds.add('pow');
-      return { t: 'mul', f: Array.from({ length: n.e }, () => b) };
+      const out = { t: 'mul', f: Array.from({ length: n.e }, () => b) };
+      note(kinds, `${toText(n)} = ${toText(out)}`);
+      return out;
     }
     case 'mul': {
       let changed = false;
@@ -674,39 +702,50 @@ function pass(n, kinds, negate = false) {
           return mkMul([monoNode(negate ? { c: -m.c, v: m.v } : m), ...adds]);
         }
         if (adds.length === 1) {
-          kinds.add('dist');
           let m = toMono(M);
           if (negate) m = { c: -m.c, v: m.v };
-          const Mn = monoNode(m);
-          return distribute(Mn, adds[0]);
+          return distribute(monoNode(m), adds[0], kinds);
         }
-        kinds.add('dist');
-        return mkMul([negate ? monoNode({ c: -toMono(M).c, v: toMono(M).v }) : M, distribute(adds[0], adds[1]), ...adds.slice(2)]);
+        return mkMul([negate ? monoNode({ c: -toMono(M).c, v: toMono(M).v }) : M, distribute(adds[0], adds[1], kinds), ...adds.slice(2)]);
       }
-      kinds.add('dist');
-      const d = distribute(adds[0], adds[1]);
+      const d = distribute(adds[0], adds[1], kinds);
       const rest = adds.slice(2);
       if (negate) return rest.length ? mkMul([{ t: 'num', v: -1 }, d, ...rest]) : { t: 'add', ts: [{ s: -1, n: d }] };
       return rest.length ? mkMul([d, ...rest]) : d;
     }
     case 'add': {
-      let changed = false;
-      const ts = n.ts.map(({ s, n: t }) => {
+      const step = ({ s, n: t }) => {
+        const k = new Set();
         // Mínus fyrir framan margfeldi einliða telst með formerkjunum
         if (s < 0 && t.t !== 'add' && t.t !== 'mono' && isMonoish(t) && !isSimple(t)) {
-          const y = monoStep(t, 1, kinds);
-          if (y) { changed = true; return y.t === 'add' ? { s: 1, n: y } : (absNode(y)[0] < 0 ? { s: 1, n: y } : { s: 1, n: y }); }
+          const y = monoStep(t, 1, k);
+          if (y) return { term: { s: 1, n: y }, k };
         }
         // Mínus fyrir framan einliðu sinnum sviga: tökum mínusinn með inn í margföldunina.
         const fold = s < 0 && t.t === 'mul' && !isBigAdd(t.f[0]) && t.f.filter(isBigAdd).length === 1 && !t.f.some((x) => x.t === 'pow' && isBigAdd(x.b));
         if (fold) {
           const k2 = new Set();
           const y = pass(t, k2, true);
-          if (k2.has('dist')) { k2.forEach((k) => kinds.add(k)); (k2.notes || []).forEach((x) => note(kinds, x)); changed = true; return { s: 1, n: y }; }
+          if (k2.has('dist')) return { term: { s: 1, n: y }, k: k2 };
         }
-        const y = pass(t, kinds);
-        if (y !== t) changed = true;
-        return { s, n: y };
+        const y = pass(t, k);
+        return { term: y === t ? null : { s, n: y }, k };
+      };
+      const results = n.ts.map(step);
+      // Eitt atriði í einu: fyrst er margfaldað inn í sviga, svo formerki, röðun, tölur og breytur.
+      // Liðir sem eru komnir styttra bíða þar til hinir hafa náð sama stigi.
+      // Það eitt að skrifa 3·x sem 3x fylgir hvaða skrefi sem er (rank -1).
+      const rank = (k) => ([...k].every((x) => x === 'mono') ? -1 : Math.min(...[...k].filter((x) => x !== 'mono').map((x) => STEP_RANK[x] ?? 50)));
+      const ranks = results.filter((r) => r.term).map((r) => rank(r.k)).filter((x) => x >= 0);
+      const minRank = ranks.length ? Math.min(...ranks) : -1;
+      let changed = false;
+      const ts = n.ts.map((orig, i) => {
+        const r = results[i];
+        if (!r.term || (rank(r.k) !== minRank && rank(r.k) !== -1)) return orig;
+        changed = true;
+        r.k.forEach((x) => kinds.add(x));
+        (r.k.notes || []).forEach((x) => note(kinds, x));
+        return r.term;
       });
       if (changed) return { t: 'add', ts, flat: n.flat };
       // Fletja út summur inni í summu
@@ -717,6 +756,10 @@ function pass(n, kinds, negate = false) {
           if (t.t === 'add') {
             if (s < 0 || !t.flat) showParen = true;
             for (const u of t.ts) out.push({ s: s * u.s, n: u.n });
+            if (s < 0) {
+              const flipped = { t: 'add', ts: t.ts.map((u) => ({ s: -u.s, n: u.n })) };
+              note(kinds, `−(${toText(t)}) = ${toText(flipped)}`);
+            } else if (!t.flat) note(kinds, `+(${toText(t)}) = ${toText(t)}`);
           } else out.push({ s, n: t });
         }
         if (showParen) kinds.add('paren');
@@ -758,6 +801,23 @@ function pass(n, kinds, negate = false) {
   return n;
 }
 
+function stripProdHighlight(n) {
+  switch (n.t) {
+    case 'mul': {
+      const f = n.f.map(stripProdHighlight);
+      const { hl, ...rest } = n;
+      return hl || f.some((x, i) => x !== n.f[i]) ? { ...rest, f } : n;
+    }
+    case 'add': {
+      const ts = n.ts.map((x) => ({ s: x.s, n: stripProdHighlight(x.n) }));
+      return ts.some((x, i) => x.n !== n.ts[i].n) ? { ...n, ts } : n;
+    }
+    case 'pow': { const b = stripProdHighlight(n.b); return b !== n.b ? { ...n, b } : n; }
+    case 'neg': { const c = stripProdHighlight(n.n); return c !== n.n ? { ...n, n: c } : n; }
+    default: return n;
+  }
+}
+
 // Skilar lista af skrefum: [{tex, kinds:[...], node}]
 export function solveSteps(start, maxSteps = 60) {
   const steps = [];
@@ -768,9 +828,11 @@ export function solveSteps(start, maxSteps = 60) {
     const next = pass(cur, kinds);
     if (next === cur) break;
     const tex = toTex(next);
-    cur = next;
-    if (tex === curTex) continue;
-    curTex = tex;
+    // Liturinn á þeim sem var margfaldaður inn á bara við í skrefinu þar sem það gerðist
+    cur = stripProdHighlight(next);
+    const plainTex = toTex(cur);
+    if (plainTex === curTex) continue;
+    curTex = plainTex;
     steps.push({ tex, kinds: [...kinds], notes: kinds.notes || [], node: next });
   }
   return steps;

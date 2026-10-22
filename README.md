@@ -21,6 +21,10 @@ Stærðfræðiritillinn er [MathLive](https://mathlive.io) (MIT-leyfi) og er gey
 
 Líka má skrifa venjulegan texta, t.d. `2x(x+3)`, `(x-5)^2` eða `3a^2b^3`.
 
+## Útlit
+
+Flatar vektormyndir á djúpbláum geimbakgrunni með skærum litum. Leturgerðin er [Nunito](https://fonts.google.com/specimen/Nunito) (SIL Open Font License) og er geymd í `vendor/fonts`. Myndirnar eru teiknaðar beint í SVG í `js/ui.js`.
+
 ## Keyra og birta
 
 Vefurinn er kyrrstæður (HTML, CSS og JavaScript) og þarf engan netþjón.

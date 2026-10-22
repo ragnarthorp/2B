@@ -133,12 +133,73 @@ export function createEditor({ placeholder = '', onEnter, initial = '', compact 
   return api;
 }
 
+// ---------- Myndir (flatar vektormyndir) ----------
+
+// Fjögurra arma stjarna
+const sparkle = (x, y, r, fill) =>
+  `<path d="M${x} ${y - r} Q${x + r * 0.18} ${y - r * 0.18} ${x + r} ${y} Q${x + r * 0.18} ${y + r * 0.18} ${x} ${y + r} Q${x - r * 0.18} ${y + r * 0.18} ${x - r} ${y} Q${x - r * 0.18} ${y - r * 0.18} ${x} ${y - r}Z" fill="${fill}"/>`;
+
+// Hnöttur með skugga og ljósbletti
+function planet(id, cx, cy, r, base, shade, light) {
+  return `
+    <clipPath id="${id}"><circle cx="${cx}" cy="${cy}" r="${r}"/></clipPath>
+    <circle cx="${cx}" cy="${cy}" r="${r}" fill="${base}"/>
+    <g clip-path="url(#${id})">
+      <circle cx="${cx + r * 0.45}" cy="${cy + r * 0.4}" r="${r}" fill="${shade}"/>
+      <ellipse cx="${cx - r * 0.35}" cy="${cy - r * 0.15}" rx="${r * 0.28}" ry="${r * 0.14}" fill="${light}" opacity=".55"/>
+      <ellipse cx="${cx + r * 0.1}" cy="${cy + r * 0.45}" rx="${r * 0.2}" ry="${r * 0.09}" fill="${shade}" opacity=".7"/>
+    </g>`;
+}
+
+export function heroArt() {
+  const svg = `
+  <svg viewBox="0 0 420 330" role="img" aria-label="Myndskreyting: hnettir og stærðfræðitákn úti í geimnum">
+    <ellipse cx="210" cy="175" rx="190" ry="70" fill="none" stroke="rgba(255,255,255,.12)" stroke-width="2" stroke-dasharray="4 10" transform="rotate(-12 210 175)"/>
+    ${planet('hp1', 215, 170, 92, '#ff8a3d', '#e2562a', '#ffd08a')}
+    <path d="M95 205 Q215 120 345 128" fill="none" stroke="#ffd43b" stroke-width="10" stroke-linecap="round" opacity=".95"/>
+    <path d="M100 214 Q215 236 336 140" fill="none" stroke="#ffd43b" stroke-width="10" stroke-linecap="round" opacity=".35"/>
+    ${planet('hp2', 355, 70, 28, '#2ee6c5', '#18b39c', '#b8fff2')}
+    ${planet('hp3', 70, 75, 18, '#ff5c8a', '#d93a6a', '#ffc2d4')}
+    ${planet('hp4', 360, 270, 14, '#9775fa', '#6f4fd8', '#d9ccff')}
+    <g font-family="Nunito, sans-serif" font-weight="900">
+      <g transform="rotate(-8 58 250)"><rect x="22" y="226" width="78" height="46" rx="16" fill="#262d7a"/><text x="61" y="259" font-size="28" fill="#ffd43b" text-anchor="middle">x²</text></g>
+      <g transform="rotate(10 150 40)"><rect x="124" y="16" width="56" height="46" rx="16" fill="#262d7a"/><text x="152" y="50" font-size="30" fill="#2ee6c5" text-anchor="middle">+</text></g>
+      <g transform="rotate(-6 265 300)"><rect x="200" y="278" width="128" height="44" rx="16" fill="#262d7a"/><text x="264" y="309" font-size="24" fill="#ff8cc6" text-anchor="middle">(a+b)²</text></g>
+      <g transform="rotate(8 395 175)"><rect x="372" y="152" width="44" height="44" rx="14" fill="#262d7a"/><text x="394" y="184" font-size="28" fill="#4dabf7" text-anchor="middle">·</text></g>
+    </g>
+    ${sparkle(30, 150, 9, '#ffd43b')}${sparkle(285, 22, 7, '#ffffff')}${sparkle(405, 120, 6, '#2ee6c5')}${sparkle(120, 310, 6, '#ffffff')}${sparkle(180, 90, 4, '#ffffff')}
+  </svg>`;
+  return el('div', { class: 'hero-art', html: svg });
+}
+
+const ICONS = {
+  plus: { base: '#2ee6c5', shade: '#18b39c', light: '#b8fff2', sym: '+', ring: '#ffd43b' },
+  times: { base: '#ff5c8a', shade: '#d93a6a', light: '#ffc2d4', sym: '×', ring: '#2ee6c5' },
+  check: { base: '#ffd43b', shade: '#e0a800', light: '#fff3bf', sym: '✓', ring: '#ff8a3d' },
+  equals: { base: '#9775fa', shade: '#6f4fd8', light: '#d9ccff', sym: '=', ring: '#4dabf7' },
+};
+let iconId = 0;
+export function planetIcon(kind) {
+  const k = ICONS[kind] || ICONS.plus;
+  const id = 'pi' + iconId++;
+  const svg = `
+  <svg viewBox="0 0 64 64" class="card-icon" aria-hidden="true">
+    ${planet(id, 32, 32, 22, k.base, k.shade, k.light)}
+    <ellipse cx="32" cy="34" rx="30" ry="8" fill="none" stroke="${k.ring}" stroke-width="3.5" transform="rotate(-18 32 34)" opacity=".9"/>
+    <text x="30" y="40" font-family="Nunito, sans-serif" font-weight="900" font-size="22" fill="#0b0f3a" text-anchor="middle">${k.sym}</text>
+    ${sparkle(56, 9, 4, '#ffffff')}
+  </svg>`;
+  return el('span', { html: svg, style: 'display:contents' });
+}
+
 // Mynd af rétthyrningi með merktum hliðum
 export function rectFigure(w, l) {
   const svg = `
   <svg viewBox="0 0 320 170" class="figure" role="img" aria-label="Rétthyrningur með breidd ${escapeHtml(w)} og lengd ${escapeHtml(l)}">
-    <rect x="60" y="25" width="200" height="100" rx="2" class="fig-shape"/>
-    <text x="160" y="152" text-anchor="middle" class="fig-label">${escapeHtml(l)}</text>
+    <rect x="60" y="22" width="200" height="104" rx="10" class="fig-shape"/>
+    <path d="M60 126 L260 126 L260 22 L250 22 Q250 116 60 116 Z" class="fig-shade"/>
+    ${sparkle(282, 24, 7, '#ffd43b')}
+    <text x="160" y="156" text-anchor="middle" class="fig-label">${escapeHtml(l)}</text>
     <text x="48" y="80" text-anchor="end" class="fig-label">${escapeHtml(w)}</text>
   </svg>`;
   return el('div', { class: 'figure-wrap', html: svg });

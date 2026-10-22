@@ -1,7 +1,7 @@
 import { parse, solveSteps, nextStep, expand, polyEqual, isFinalForm, diagnose, toTex, STEP_TEXT, ParseError } from './algebra.js';
 import { generate } from './generators.js';
 import { CHAPTERS, chapterById } from './chapters.js';
-import { el, math, richHtml, createEditor, rectFigure } from './ui.js';
+import { el, math, richHtml, createEditor, rectFigure, heroArt, planetIcon } from './ui.js';
 
 const app = document.getElementById('app');
 
@@ -19,7 +19,8 @@ function tryParse(src) {
   }
 }
 
-const explain = (kinds) => kinds.map((k) => STEP_TEXT[k]).filter(Boolean);
+// „Skrifum 3·x sem 3x“ er sleppt þegar annað gerist í sama skrefi
+const explain = (kinds) => (kinds.length > 1 ? kinds.filter((k) => k !== 'mono') : kinds).map((k) => STEP_TEXT[k]).filter(Boolean);
 
 // Útskýring á skrefi: almenn regla og svo nákvæmlega hvað er reiknað hér
 function whyView(s) {
@@ -98,22 +99,29 @@ function problemHeader(p) {
 
 // ---------- Forsíða ----------
 
+const CHAPTER_ICONS = { '1.1': 'plus', '2.1': 'times' };
+
 function homeView() {
   return el('div', { class: 'page' },
     el('section', { class: 'hero' },
-      el('h1', {}, 'Stærðfræði 2B'),
-      el('p', {}, 'Sýnidæmi með útskýringum, reiknivél sem sýnir skrefin og æfingar þar sem þú reiknar sjálf/ur skref fyrir skref.')),
+      el('div', {},
+        el('h1', {}, 'Stærðfræði ', el('span', { class: 'hl' }, '2B')),
+        el('p', {}, 'Lærðu að reikna með liðastærðum, eitt lítið skref í einu. Sýnidæmi með útskýringum, reiknivél og æfingar þar sem þú reiknar sjálf/ur.')),
+      heroArt()),
     el('div', { class: 'cards' },
       CHAPTERS.map((c) => el('a', { class: 'card', href: `#/kafli/${c.id}` },
-        el('span', { class: 'card-num' }, c.id),
+        planetIcon(CHAPTER_ICONS[c.id]),
+        el('span', { class: 'card-num' }, 'KAFLI ' + c.id),
         el('span', { class: 'card-title' }, c.title),
         el('span', { class: 'card-sub' }, `${c.examples.length} sýnidæmi · reiknivél · æfingar`))),
-      el('a', { class: 'card accent', href: '#/prof' },
-        el('span', { class: 'card-num' }, '✓'),
+      el('a', { class: 'card', href: '#/prof' },
+        planetIcon('check'),
+        el('span', { class: 'card-num' }, 'PRÓF'),
         el('span', { class: 'card-title' }, 'Prófæfing'),
         el('span', { class: 'card-sub' }, 'Veldu kafla og fáðu blandað æfingapróf')),
       el('a', { class: 'card', href: '#/reiknivel' },
-        el('span', { class: 'card-num' }, '='),
+        planetIcon('equals'),
+        el('span', { class: 'card-num' }, 'VERKFÆRI'),
         el('span', { class: 'card-title' }, 'Reiknivél'),
         el('span', { class: 'card-sub' }, 'Skrifaðu inn þitt eigið dæmi og sjáðu lausnina skref fyrir skref'))));
 }
