@@ -1,7 +1,7 @@
 import { parse, solveSteps, nextStep, expand, polyEqual, isFinalForm, diagnose, toTex, STEP_TEXT, ParseError } from './algebra.js';
 import { generate } from './generators.js';
 import { CHAPTERS, chapterById } from './chapters.js';
-import { el, math, richHtml, createEditor, rectFigure, heroArt, planetIcon } from './ui.js';
+import { el, math, richHtml, createEditor, rectFigure, heroArt, planetIcon, distDiagram } from './ui.js';
 
 const app = document.getElementById('app');
 
@@ -22,6 +22,12 @@ function tryParse(src) {
 // „Skrifum 3·x sem 3x“ er sleppt þegar annað gerist í sama skrefi
 const explain = (kinds) => (kinds.length > 1 ? kinds.filter((k) => k !== 'mono') : kinds).map((k) => STEP_TEXT[k]).filter(Boolean);
 
+// Örvamyndir sem sýna hvað margfaldast saman í skrefinu
+function diagramsView(s) {
+  if (!s.diagrams || !s.diagrams.length) return null;
+  return el('div', { class: 'diagrams' }, s.diagrams.map(distDiagram));
+}
+
 // Útskýring á skrefi: almenn regla og svo nákvæmlega hvað er reiknað hér
 function whyView(s) {
   return el('div', { class: 'step-why' },
@@ -39,6 +45,7 @@ function stepsView(node, { showStart = true } = {}) {
   }
   steps.forEach((s, i) => {
     list.append(el('li', { class: 'step' + (i === steps.length - 1 ? ' final' : '') },
+      diagramsView(s),
       el('div', { class: 'step-math' }, el('span', { class: 'eq' }, '='), math(s.tex)),
       whyView(s)));
   });
@@ -63,6 +70,7 @@ function stepper(node) {
     steps.slice(0, shown).forEach((s, i) => {
       const last = i === steps.length - 1;
       list.append(el('li', { class: 'step' + (last ? ' final' : '') + (animate && i === shown - 1 ? ' new' : '') },
+        diagramsView(s),
         el('div', { class: 'step-math' }, el('span', { class: 'eq' }, '='), math(s.tex)),
         whyView(s)));
     });
@@ -276,6 +284,7 @@ function practiceView(c, presetExpr) {
       work.innerHTML = '';
       for (const l of lines) {
         work.append(el('li', { class: 'step ' + (l.shown ? 'shown' : 'ok') },
+          l.step ? diagramsView(l.step) : null,
           el('div', { class: 'step-math' }, el('span', { class: 'eq' }, '='), math(l.tex), el('span', { class: 'mark' }, l.shown ? 'sýnt' : '✓')),
           l.step ? whyView(l.step) : null));
       }

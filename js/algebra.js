@@ -379,7 +379,7 @@ export function toTex(n) {
       n.f.forEach((f, i) => {
         const par = needsParensInMul(f, i === 0);
         let ft = par ? '\\left(' + toTex(f) + '\\right)' : toTex(f);
-        if (n.hl && i === 0) ft = '\\textcolor{' + HL_COLOR + '}{' + ft + '}';
+        if (n.hl && i === 0) ft = '\\textcolor{' + (typeof n.hl === 'string' ? n.hl : HL_COLOR) + '}{' + ft + '}';
         if (i > 0) {
           const prev = n.f[i - 1];
           const prevPar = needsParensInMul(prev, i === 1);
@@ -488,10 +488,22 @@ const signedText = (s, a) => (s < 0 ? '−' : '') + toText(a);
 
 // Margföldun inn í sviga. Ef A er sjálf summa er bara fyrsti liður hennar margfaldaður inn
 // í B í þessu skrefi; afgangurinn bíður næsta skrefs.
-function distribute(A, B, kinds) {
+// Litur fyrir hvern lið sem margfaldast inn: 1. liður appelsínugulur, 2. grænblár, ...
+export const DIST_COLORS = ['#ff9f43', '#2ee6c5', '#ff6b9d', '#b197fc'];
+
+// Mynd með örvum: hvaða liður (from) margfaldast við hvern lið í B
+function diagram(kinds, d) {
+  if (!kinds.diagrams) kinds.diagrams = [];
+  kinds.diagrams.push(d);
+}
+const termList = (terms) => terms.map(([s, x]) => ({ s, tex: toTex(x) }));
+
+function distribute(A, B, kinds, from = 0) {
   const ta = signedTerms(A), tb = signedTerms(B);
   const [sa, a] = ta[0];
-  const ts = tb.map(([sb, b]) => ({ s: sa * sb, n: { t: 'mul', f: [a, b], prod: true, hl: true } }));
+  const color = DIST_COLORS[from % DIST_COLORS.length];
+  const ts = tb.map(([sb, b]) => ({ s: sa * sb, n: { t: 'mul', f: [a, b], prod: true, hl: color } }));
+  diagram(kinds, { a: termList(ta), b: termList(tb), color, aParen: ta.length > 1 });
   const bText = '(' + toText(B) + ')';
   if (ta.length === 1) {
     kinds.add('dist');
@@ -502,9 +514,9 @@ function distribute(A, B, kinds) {
     const rest = ta.slice(1);
     if (rest.length === 1) {
       const [sr, r] = rest[0];
-      ts.push({ s: sr, n: { t: 'mul', f: [r, B] } });
+      ts.push({ s: sr, n: { t: 'mul', f: [r, B], from: from + 1 } });
     } else {
-      ts.push({ s: 1, n: { t: 'mul', f: [{ t: 'add', ts: rest.map(([x, y]) => ({ s: x, n: y })) }, B] } });
+      ts.push({ s: 1, n: { t: 'mul', f: [{ t: 'add', ts: rest.map(([x, y]) => ({ s: x, n: y })) }, B], from: from + 1 } });
     }
   }
   return ts.length === 1 && ts[0].s === 1 ? ts[0].n : { t: 'add', ts, flat: true };
@@ -704,11 +716,11 @@ function pass(n, kinds, negate = false) {
         if (adds.length === 1) {
           let m = toMono(M);
           if (negate) m = { c: -m.c, v: m.v };
-          return distribute(monoNode(m), adds[0], kinds);
+          return distribute(monoNode(m), adds[0], kinds, n.from || 0);
         }
-        return mkMul([negate ? monoNode({ c: -toMono(M).c, v: toMono(M).v }) : M, distribute(adds[0], adds[1], kinds), ...adds.slice(2)]);
+        return mkMul([negate ? monoNode({ c: -toMono(M).c, v: toMono(M).v }) : M, distribute(adds[0], adds[1], kinds, n.from || 0), ...adds.slice(2)]);
       }
-      const d = distribute(adds[0], adds[1], kinds);
+      const d = distribute(adds[0], adds[1], kinds, n.from || 0);
       const rest = adds.slice(2);
       if (negate) return rest.length ? mkMul([{ t: 'num', v: -1 }, d, ...rest]) : { t: 'add', ts: [{ s: -1, n: d }] };
       return rest.length ? mkMul([d, ...rest]) : d;
@@ -745,6 +757,7 @@ function pass(n, kinds, negate = false) {
         changed = true;
         r.k.forEach((x) => kinds.add(x));
         (r.k.notes || []).forEach((x) => note(kinds, x));
+        (r.k.diagrams || []).forEach((x) => diagram(kinds, x));
         return r.term;
       });
       if (changed) return { t: 'add', ts, flat: n.flat };
@@ -833,7 +846,7 @@ export function solveSteps(start, maxSteps = 60) {
     const plainTex = toTex(cur);
     if (plainTex === curTex) continue;
     curTex = plainTex;
-    steps.push({ tex, kinds: [...kinds], notes: kinds.notes || [], node: next });
+    steps.push({ tex, kinds: [...kinds], notes: kinds.notes || [], diagrams: kinds.diagrams || [], node: next });
   }
   return steps;
 }

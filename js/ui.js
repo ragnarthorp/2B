@@ -204,3 +204,72 @@ export function rectFigure(w, l) {
   </svg>`;
   return el('div', { class: 'figure-wrap', html: svg });
 }
+
+// ---------- Örvamynd fyrir margföldun inn í sviga ----------
+// d = {a:[{s,tex}], b:[{s,tex}], color, aParen}: fyrsti liðurinn í a margfaldast við hvern lið í b.
+
+const SVG_NS = 'http://www.w3.org/2000/svg';
+
+function termTokens(terms, paren, cls, colorFirst) {
+  const row = el('span', { class: 'dd-group' });
+  if (paren) row.append(el('span', { class: 'dd-paren' }, '('));
+  const toks = terms.map((t, i) => {
+    if (i > 0 || t.s < 0) row.append(el('span', { class: 'dd-sign' }, t.s < 0 ? '−' : '+'));
+    const tok = el('span', { class: 'dd-term ' + cls, html: texHtml(t.tex) });
+    if (colorFirst && i === 0) tok.style.color = colorFirst;
+    row.append(tok);
+    return tok;
+  });
+  if (paren) row.append(el('span', { class: 'dd-paren' }, ')'));
+  return { row, toks };
+}
+
+export function distDiagram(d) {
+  const A = termTokens(d.a, d.aParen, 'dd-a', d.color);
+  const B = termTokens(d.b, true, 'dd-b');
+  const svg = document.createElementNS(SVG_NS, 'svg');
+  svg.setAttribute('class', 'dd-arrows');
+  svg.setAttribute('aria-hidden', 'true');
+  const wrap = el('div', { class: 'dist-diagram', role: 'img', 'aria-label': 'Örvar sýna að fyrsti liðurinn margfaldast við hvern lið í svigunum' },
+    svg, el('div', { class: 'dd-expr' }, A.row, B.row));
+  if (d.aParen) A.toks.slice(1).forEach((t) => t.classList.add('dd-rest'));
+
+  const draw = () => {
+    if (!wrap.isConnected) return;
+    const box = wrap.getBoundingClientRect();
+    if (!box.width) return;
+    svg.setAttribute('width', box.width);
+    svg.setAttribute('height', box.height);
+    svg.setAttribute('viewBox', `0 0 ${box.width} ${box.height}`);
+    svg.innerHTML = '';
+    const id = 'ah' + Math.random().toString(36).slice(2, 8);
+    const defs = document.createElementNS(SVG_NS, 'defs');
+    defs.innerHTML = `<marker id="${id}" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="${d.color}"/></marker>`;
+    svg.append(defs);
+    const src = A.toks[0].getBoundingClientRect();
+    const x1 = src.left + src.width / 2 - box.left;
+    const y1 = src.top - box.top + 2;
+    B.toks.forEach((tok, i) => {
+      const r = tok.getBoundingClientRect();
+      const x2 = r.left + r.width / 2 - box.left;
+      const y2 = r.top - box.top + 2;
+      const h = Math.min(y1 - 4, 14 + Math.abs(x2 - x1) * 0.28);
+      const path = document.createElementNS(SVG_NS, 'path');
+      path.setAttribute('d', `M${x1} ${y1} C${x1} ${y1 - h}, ${x2} ${y2 - h}, ${x2} ${y2 - 3}`);
+      path.setAttribute('stroke', d.color);
+      path.setAttribute('class', 'dd-arc');
+      path.setAttribute('marker-end', `url(#${id})`);
+      path.style.animationDelay = (i * 0.25) + 's';
+      svg.append(path);
+      const len = path.getTotalLength();
+      path.style.strokeDasharray = len;
+      path.style.strokeDashoffset = len;
+    });
+  };
+
+  // Teiknum þegar myndin er komin á síðuna og aftur ef stærðin breytist
+  const ro = new ResizeObserver(() => draw());
+  ro.observe(wrap);
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(draw);
+  return wrap;
+}

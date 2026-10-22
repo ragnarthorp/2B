@@ -280,3 +280,24 @@ math-field::part(virtual-keyboard-toggle) { color: var(--muted); }
 .your-answer { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 1.05rem; font-weight: 700; }
 
 [hidden] { display: none !important; }
+
+/* Örvamynd fyrir margföldun inn í sviga */
+.dist-diagram {
+  position: relative; display: inline-block; max-width: 100%;
+  padding: 46px 14px 10px; margin: 2px 0 8px;
+  border-radius: 16px; background: rgba(11, 15, 58, 0.45);
+  overflow-x: auto;
+}
+.dd-arrows { position: absolute; left: 0; top: 0; pointer-events: none; overflow: visible; }
+.dd-expr { display: flex; align-items: baseline; gap: 2px; font-size: 1.35rem; white-space: nowrap; }
+.dd-group { display: inline-flex; align-items: baseline; gap: 6px; }
+.dd-group + .dd-group { margin-left: 6px; }
+.dd-paren { font-size: 1.5rem; color: var(--muted); }
+.dd-sign { color: var(--muted); font-weight: 700; }
+.dd-term { padding: 0 2px; }
+.dd-a:first-of-type { font-weight: 800; }
+.dd-rest { opacity: 0.45; }
+.dd-arc { fill: none; stroke-width: 2.5; stroke-linecap: round; animation: dd-draw 0.6s ease-out forwards; }
+@keyframes dd-draw { to { stroke-dashoffset: 0; } }
+@media (prefers-reduced-motion: reduce) { .dd-arc { animation: none; stroke-dashoffset: 0 !important; } }
+.diagrams { display: flex; flex-wrap: wrap; gap: 8px; }
