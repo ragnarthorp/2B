@@ -159,8 +159,32 @@ main { max-width: 860px; margin: 0 auto; padding: 8px 16px 48px; }
 .q.wrong { border-color: var(--bad); }
 .sol summary { cursor: pointer; color: var(--accent); }
 .score { font-size: 1.3rem; }
-.summary:empty { display: none; }
-.sticky { position: sticky; top: 56px; z-index: 5; justify-content: flex-end; }
-.sticky .stats { background: var(--surface); padding: 4px 10px; border-radius: 8px; border: 1px solid var(--line); }
 [hidden] { display: none !important; }
 math-field::part(menu-toggle) { display: none; }
+
+/* Eitt dæmi í einu */
+.pager { display: flex; align-items: center; gap: 8px; margin: 0 0 12px; flex-wrap: wrap; }
+.pager-nums { display: flex; flex-wrap: wrap; gap: 6px; flex: 1; justify-content: center; }
+.pnum {
+  min-width: 36px; height: 36px; border-radius: 99px; cursor: pointer;
+  border: 1px solid var(--line); background: var(--surface); color: var(--text); font: inherit; font-size: 0.9rem;
+}
+.pnum.current { border: 2px solid var(--accent); color: var(--accent); font-weight: 700; }
+.pnum.done { background: var(--accent-soft); }
+.pnum.gen { border-style: dashed; }
+.pnum.right { background: var(--good-soft); border-color: var(--good); color: var(--good); }
+.pnum.wrong { background: var(--bad-soft); border-color: var(--bad); color: var(--bad); }
+.btn:disabled { opacity: 0.4; cursor: default; }
+@media (max-width: 560px) {
+  .pager > .btn { flex: 1; }
+  .pager-nums { order: 3; flex-basis: 100%; }
+}
+.step.new { animation: stepin 0.35s ease-out; }
+@keyframes stepin { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .step.new { animation: none; } }
+details.theory > summary { cursor: pointer; font-weight: 650; color: var(--accent); }
+details.theory[open] > summary { margin-bottom: 8px; }
+.exam-head { justify-content: space-between; }
+.exam-head .stats { margin-left: 0; }
+h3 { font-size: 1rem; margin: 16px 0 4px; }
+.your-answer { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 1.05rem; }

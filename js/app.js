@@ -37,6 +37,45 @@ function stepsView(node, { showStart = true } = {}) {
   return list;
 }
 
+// Lausn sem birtist eitt skref í einu
+function stepper(node) {
+  const steps = solveSteps(node);
+  const list = el('ol', { class: 'steps' });
+  if (!steps.length) {
+    list.append(el('li', { class: 'step note' }, 'Ekki er hægt að einfalda þessa stæðu frekar.'));
+    return el('div', { class: 'stepper' }, list);
+  }
+  let shown = 0;
+  const status = el('span', { class: 'stats' });
+  const next = el('button', { class: 'btn', onclick: () => { shown++; draw(true); } }, 'Næsta skref');
+  const all = el('button', { class: 'btn ghost', onclick: () => { shown = steps.length; draw(false); } }, 'Sýna alla lausnina');
+  const reset = el('button', { class: 'btn ghost', onclick: () => { shown = 0; draw(false); } }, 'Byrja aftur');
+  function draw(animate) {
+    list.innerHTML = '';
+    steps.slice(0, shown).forEach((s, i) => {
+      const last = i === steps.length - 1;
+      list.append(el('li', { class: 'step' + (last ? ' final' : '') + (animate && i === shown - 1 ? ' new' : '') },
+        el('div', { class: 'step-math' }, el('span', { class: 'eq' }, '='), math(s.tex)),
+        el('div', { class: 'step-why' }, explain(s.kinds).join(' '))));
+    });
+    next.hidden = all.hidden = shown >= steps.length;
+    reset.hidden = shown === 0;
+    status.textContent = shown >= steps.length ? 'Lausn lokið' : `Skref ${shown} af ${steps.length}`;
+    if (animate && list.lastChild) list.lastChild.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+  draw(false);
+  return el('div', { class: 'stepper' }, list, el('div', { class: 'row' }, next, all, reset, status));
+}
+
+// Númerahnappar til að fletta milli dæma
+function pager(count, current, go, cls = () => '') {
+  return el('nav', { class: 'pager', 'aria-label': 'Dæmi' },
+    el('button', { class: 'btn ghost', disabled: current === 0, onclick: () => go(current - 1) }, '◀ Fyrra'),
+    el('div', { class: 'pager-nums' }, Array.from({ length: count }, (_, i) =>
+      el('button', { class: 'pnum' + (i === current ? ' current' : '') + ' ' + cls(i), 'aria-current': i === current ? 'true' : null, onclick: () => go(i) }, i + 1))),
+    el('button', { class: 'btn ghost', disabled: current === count - 1, onclick: () => go(current + 1) }, 'Næsta ▶'));
+}
+
 function levelSelect(value, onChange) {
   const sel = el('select', { class: 'select', 'aria-label': 'Erfiðleikastig', onchange: (e) => onChange(+e.target.value) },
     LEVELS.map((l) => el('option', { value: l.v, selected: l.v === value }, l.label)));
@@ -94,37 +133,49 @@ function chapterView(id, tab, param) {
     el('h1', {}, el('span', { class: 'num' }, c.id), ' ', c.title), nav, body);
 }
 
-function exampleCard(c, ex, heading) {
-  const node = parse(ex.expr);
-  return el('section', { class: 'example' },
-    el('h2', {}, heading),
-    problemHeader({ prompt: ex.prompt || 'Einfaldaðu eins og hægt er:', expr: ex.expr, figure: ex.figure }),
-    el('div', { class: 'solution' }, stepsView(node, { showStart: false })),
-    ex.note ? el('p', { class: 'tip' }, el('b', {}, 'Athugið: '), ex.note) : null,
-    el('a', { class: 'btn ghost', href: `#/kafli/${c.id}/aefing/${encodeURIComponent(ex.expr)}` }, 'Reikna þetta sjálf/ur í skrefum →'));
-}
-
 function examplesView(c) {
-  const wrap = el('div', {});
-  wrap.append(el('section', { class: 'theory', html: richHtml(c.intro) }));
-  c.examples.forEach((ex, i) => wrap.append(exampleCard(c, ex, `Sýnidæmi ${i + 1}`)));
+  const list = c.examples.map((ex, i) => ({ ...ex, label: `Sýnidæmi ${i + 1}` }));
+  let idx = 0, level = 0, made = 0;
+  const area = el('div', {});
 
-  // Ný sýnidæmi af handahófi
-  let level = 0, n = 0;
-  const generated = el('div', {});
+  function show(i) {
+    idx = Math.max(0, Math.min(list.length - 1, i));
+    const ex = list[idx];
+    area.innerHTML = '';
+    area.append(
+      pager(list.length, idx, show, (i) => (list[i].generated ? 'gen' : '')),
+      el('section', { class: 'example' },
+        el('h2', {}, ex.label),
+        problemHeader({ prompt: ex.prompt || 'Einfaldaðu eins og hægt er:', expr: ex.expr, figure: ex.figure }),
+        stepper(parse(ex.expr)),
+        ex.note ? el('p', { class: 'tip' }, el('b', {}, 'Athugið: '), ex.note) : null,
+        el('a', { class: 'btn ghost', href: `#/kafli/${c.id}/aefing/${encodeURIComponent(ex.expr)}` }, 'Reikna þetta sjálf/ur í skrefum →')));
+  }
+
   const more = () => {
-    n++;
-    const card = exampleCard(c, generate(c.id, level), `Nýtt sýnidæmi ${n}`);
-    generated.append(card);
-    card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    made++;
+    list.push({ ...generate(c.id, level), label: `Nýtt sýnidæmi ${made}`, generated: true });
+    show(list.length - 1);
   };
-  wrap.append(generated, el('section', { class: 'panel' },
-    el('h2', {}, 'Fleiri sýnidæmi'),
-    el('p', {}, 'Búðu til nýtt dæmi af handahófi og sjáðu lausnina skref fyrir skref.'),
-    el('div', { class: 'row' },
-      el('label', {}, 'Erfiðleikastig ', levelSelect(level, (v) => { level = v; })),
-      el('button', { class: 'btn', onclick: more }, 'Búa til nýtt sýnidæmi'))));
-  return wrap;
+
+  // Örvatakkar fletta milli dæma
+  const onKey = (e) => {
+    if (!document.body.contains(area)) { document.removeEventListener('keydown', onKey); return; }
+    if (e.target.closest && e.target.closest('math-field, input, select, textarea')) return;
+    if (e.key === 'ArrowRight') show(idx + 1);
+    if (e.key === 'ArrowLeft') show(idx - 1);
+  };
+  document.addEventListener('keydown', onKey);
+
+  show(0);
+  return el('div', {},
+    el('details', { class: 'theory', open: true }, el('summary', {}, 'Upprifjun'), el('div', { html: richHtml(c.intro) })),
+    area,
+    el('section', { class: 'panel' },
+      el('h2', {}, 'Fleiri sýnidæmi'),
+      el('div', { class: 'row' },
+        el('label', {}, 'Erfiðleikastig ', levelSelect(level, (v) => { level = v; })),
+        el('button', { class: 'btn', onclick: more }, 'Búa til nýtt sýnidæmi'))));
 }
 
 function calculatorView(c) {
@@ -295,10 +346,21 @@ function practiceView(c, presetExpr) {
 
 // ---------- Prófæfing ----------
 
+function gradeAnswer(p, src) {
+  const start = parse(p.expr);
+  if (!src.trim()) return { ok: false, text: 'Ekkert svar.' };
+  const r = tryParse(src);
+  if (r.error) return { ok: false, text: r.error };
+  if (!polyEqual(expand(r.node), expand(start))) return { ok: false, text: 'Rangt. ' + diagnose(start, r.node) };
+  if (!isFinalForm(r.node)) return { ok: false, text: 'Jafngilt, en ekki fullstytt. Kláraðu að einfalda.' };
+  return { ok: true, text: 'Rétt!' };
+}
+
 function examView() {
   const selected = new Set(CHAPTERS.map((c) => c.id));
   let count = 10, level = 0;
   const root = el('div', { class: 'page' }, el('h1', {}, 'Prófæfing'));
+  const errMsg = el('p', { class: 'msg bad' });
   const setup = el('section', { class: 'panel' },
     el('p', {}, 'Hakaðu við kaflana sem æfingin á að vera úr.'),
     el('div', { class: 'checks' }, CHAPTERS.map((c) => el('label', { class: 'check' },
@@ -309,14 +371,14 @@ function examView() {
         [5, 10, 15, 20].map((n) => el('option', { value: n, selected: n === count }, n)))),
       el('label', {}, 'Erfiðleikastig ', levelSelect(level, (v) => { level = v; })),
       el('button', { class: 'btn', onclick: () => start() }, 'Búa til próf')),
-    el('p', { class: 'msg bad', id: 'exam-msg' }));
+    errMsg);
   const testArea = el('div', {});
   root.append(setup, testArea);
 
   let timer;
   function start() {
-    if (!selected.size) { setup.querySelector('#exam-msg').textContent = 'Veldu að minnsta kosti einn kafla.'; return; }
-    setup.querySelector('#exam-msg').textContent = '';
+    if (!selected.size) { errMsg.textContent = 'Veldu að minnsta kosti einn kafla.'; return; }
+    errMsg.textContent = '';
     clearInterval(timer);
     const ids = [...selected];
     const qs = [];
@@ -327,59 +389,74 @@ function examView() {
       seen.add(p.expr);
       qs.push(p);
     }
-    // Röðum eftir erfiðleika þegar blandað er
     if (!level) qs.sort((a, b) => a.level - b.level);
+
     const t0 = Date.now();
     const clock = el('span', { class: 'stats' });
-    timer = setInterval(() => {
-      const s = Math.floor((Date.now() - t0) / 1000);
-      clock.textContent = `Tími: ${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
-    }, 1000);
-
-    const items = qs.map((p, i) => {
-      const ed = createEditor({ placeholder: 'Svar', compact: true });
-      const res = el('div', { class: 'result' });
-      const box = el('section', { class: 'example q' },
-        el('h2', {}, `${i + 1}.`, el('span', { class: 'chip' }, p.chapter)),
-        problemHeader(p),
-        el('p', { class: 'help' }, 'Svar (fullstytt):'),
-        ed.root, res);
-      return { p, ed, res, box };
-    });
-
-    const submit = () => {
-      clearInterval(timer);
-      let score = 0;
-      for (const it of items) {
-        it.res.innerHTML = '';
-        const start = parse(it.p.expr);
-        const r = tryParse(it.ed.getValue());
-        let ok = false, text;
-        if (!it.ed.getValue().trim()) text = 'Ekkert svar.';
-        else if (r.error) text = r.error;
-        else if (!polyEqual(expand(r.node), expand(start))) text = 'Rangt. ' + diagnose(start, r.node);
-        else if (!isFinalForm(r.node)) text = 'Jafngilt, en ekki fullstytt. Kláraðu að einfalda.';
-        else { ok = true; text = 'Rétt!'; }
-        if (ok) score++;
-        it.box.classList.toggle('right', ok);
-        it.box.classList.toggle('wrong', !ok);
-        const sol = el('details', { class: 'sol' }, el('summary', {}, 'Sýna lausn'), stepsView(start, { showStart: false }));
-        it.res.append(el('p', { class: 'msg ' + (ok ? 'good' : 'bad') }, text), sol);
-      }
-      summary.innerHTML = '';
-      const pct = Math.round((100 * score) / items.length);
-      summary.append(el('div', { class: 'score' }, el('b', {}, `${score} / ${items.length}`), ` rétt (${pct}%). ${clock.textContent}`),
-        el('div', { class: 'row' }, el('button', { class: 'btn', onclick: () => start() }, 'Nýtt próf')));
-      summary.scrollIntoView({ behavior: 'smooth' });
+    const tick = () => {
+      const sec = Math.floor((Date.now() - t0) / 1000);
+      clock.textContent = `Tími: ${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`;
     };
+    tick();
+    timer = setInterval(tick, 1000);
 
-    const summary = el('div', { class: 'panel summary' });
+    let idx = 0, results = null;
+    const items = qs.map((p) => ({ p, ed: createEditor({ placeholder: 'Svar', onEnter: () => go(idx + 1) }) }));
+    const answered = (i) => !!items[i].ed.getValue().trim();
+
+    const view = el('div', {});
+    setup.hidden = true;
+
+    function go(i) {
+      idx = Math.max(0, Math.min(items.length - 1, i));
+      render();
+    }
+
+    function render() {
+      const it = items[idx];
+      view.innerHTML = '';
+      const cls = (i) => (results ? (results[i].ok ? 'right' : 'wrong') : answered(i) ? 'done' : '');
+      const head = el('div', { class: 'row exam-head' },
+        el('b', {}, results ? 'Yfirferð' : `Dæmi ${idx + 1} af ${items.length}`),
+        results ? el('span', { class: 'score' }, `${results.filter((r) => r.ok).length} / ${items.length} rétt`) : null,
+        clock);
+      const card = el('section', { class: 'example q' + (results ? (results[idx].ok ? ' right' : ' wrong') : '') },
+        el('h2', {}, `${idx + 1}.`, el('span', { class: 'chip' }, it.p.chapter)),
+        problemHeader(it.p));
+      if (!results) {
+        card.append(el('p', { class: 'help' }, 'Svar (fullstytt). Ýttu á Enter til að fara í næsta dæmi.'), it.ed.root);
+      } else {
+        const r = results[idx];
+        const ans = it.ed.getValue().trim();
+        card.append(
+          el('div', { class: 'your-answer' }, 'Þitt svar: ', ans ? math(tryParse(ans).node ? toTex(tryParse(ans).node) : ans) : el('i', {}, 'ekkert')),
+          el('p', { class: 'msg ' + (r.ok ? 'good' : 'bad') }, r.text),
+          el('h3', {}, 'Lausn skref fyrir skref'),
+          stepper(parse(it.p.expr)));
+      }
+      const actions = el('div', { class: 'row' });
+      if (!results) {
+        actions.append(el('button', { class: 'btn big', onclick: submit }, 'Skila prófi'));
+      } else {
+        actions.append(el('button', { class: 'btn', onclick: () => { results = null; setup.hidden = false; testArea.innerHTML = ''; setup.scrollIntoView(); } }, 'Nýtt próf'));
+      }
+      view.append(head, pager(items.length, idx, go, cls), card, actions);
+      if (!results) setTimeout(() => it.ed.focus(), 30);
+    }
+
+    function submit() {
+      const missing = items.filter((_, i) => !answered(i)).length;
+      if (missing && !confirm(`Þú átt eftir að svara ${missing} ${missing === 1 ? 'dæmi' : 'dæmum'}. Viltu skila samt?`)) return;
+      clearInterval(timer);
+      results = items.map((it) => gradeAnswer(it.p, it.ed.getValue()));
+      idx = 0;
+      render();
+      view.scrollIntoView({ behavior: 'smooth' });
+    }
+
     testArea.innerHTML = '';
-    testArea.append(el('div', { class: 'row sticky' }, clock),
-      ...items.map((it) => it.box),
-      el('div', { class: 'row' }, el('button', { class: 'btn big', onclick: submit }, 'Skila prófi')),
-      summary);
-    testArea.scrollIntoView({ behavior: 'smooth' });
+    testArea.append(view);
+    render();
   }
   return root;
 }

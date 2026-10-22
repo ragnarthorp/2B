@@ -2,11 +2,11 @@
 
 Kennsluvefur í stærðfræði. Hver kafli inniheldur:
 
-- **Sýnidæmi** með lausn skref fyrir skref og útskýringu á hverju skrefi.
+- **Sýnidæmi**, eitt í einu. Lausnin birtist eitt skref í einu með útskýringu, og líkir liðir eru litaðir eins áður en þeir eru teknir saman. Hægt er að búa til ný sýnidæmi af handahófi.
 - **Reiknivél** þar sem nemandi skrifar inn eigið dæmi og fær lausnina í skrefum.
 - **Æfingu** þar sem nemandi fær dæmi (létt, miðlungs, erfitt eða blandað) eða skrifar sitt eigið og reiknar það sjálfur skref fyrir skref. Hvert skref er yfirfarið og hægt er að fá vísbendingu, sjá næsta skref eða alla lausnina.
 
-Auk þess er **prófæfing**: nemandi hakar við kafla, velur fjölda dæma og erfiðleikastig, svarar og fær einkunn og lausnir.
+Auk þess er **prófæfing**: nemandi hakar við kafla, velur fjölda dæma og erfiðleikastig og svarar einu dæmi í einu. Eftir skil fær hann einkunn og getur farið yfir hvert dæmi og séð lausnina skref fyrir skref.
 
 Kaflar sem eru komnir:
 

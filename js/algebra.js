@@ -395,7 +395,15 @@ export function toTex(n) {
     }
     case 'add': {
       let out = '';
+      const colorOf = n.hl ? likeTermColors(n) : null;
       n.ts.forEach(({ s, n: t }, i) => {
+        if (colorOf && colorOf[i]) {
+          const [s2, a] = absNode(t);
+          const sign = s * s2;
+          const body = (sign < 0 ? '-' : '') + toTex(a);
+          out += (i === 0 || sign < 0 ? '' : '+') + '\\textcolor{' + colorOf[i] + '}{' + body + '}';
+          return;
+        }
         if (t.t === 'add' && t.flat && s > 0) {
           const inner = toTex(t);
           out += i === 0 || inner.startsWith('-') ? inner : '+' + inner;
@@ -413,9 +421,26 @@ export function toTex(n) {
   return '?';
 }
 
+// Litir fyrir líka liði (virka bæði í ljósu og dökku þema)
+export const LIKE_COLORS = ['#e8590c', '#1c7ed6', '#2b8a3e', '#ae3ec9', '#d6336c', '#0c8599', '#e67700'];
+
+// Litur hvers liðar í summu; liðir sem standa einir fá engan lit.
+function likeTermColors(n) {
+  const ms = n.ts.map(({ n: t }) => (isMonoish(t) ? toMono(t) : null));
+  if (ms.some((m) => !m)) return null;
+  const keys = ms.map((m) => monoKey(m.v));
+  const count = {};
+  keys.forEach((k) => { count[k] = (count[k] || 0) + 1; });
+  const repeated = [...new Set(keys)].filter((k) => count[k] > 1)
+    .sort((a, b) => compareMono(ms[keys.indexOf(a)], ms[keys.indexOf(b)]));
+  return keys.map((k) => (count[k] > 1 ? LIKE_COLORS[repeated.indexOf(k) % LIKE_COLORS.length] : null));
+}
+
 // Einfaldur texti (fyrir prófanir og villuskilaboð)
 export function toText(n) {
-  return toTex(n)
+  let tex = toTex(n);
+  for (let prev = ''; prev !== tex;) { prev = tex; tex = tex.replace(/\\textcolor\{[^}]*\}\{((?:[^{}]|\{[^{}]*\})*)\}/g, '$1'); }
+  return tex
     .replace(/\\left\(/g, '(').replace(/\\right\)/g, ')')
     .replace(/\\cdot /g, '·')
     .replace(/\^\{(\d+)\}/g, '^$1');
@@ -428,6 +453,7 @@ export const STEP_TEXT = {
   dist: 'Margföldum inn í svigann: hver liður er margfaldaður með hverjum lið.',
   mono: 'Einföldum hvern lið: margföldum saman tölurnar, leggjum saman veldisvísa sömu breytu (x·x = x²) og röðum breytunum í stafrófsröð.',
   paren: 'Leysum upp sviga. Mínus fyrir framan sviga breytir formerki allra liða inni í svigunum.',
+  color: 'Finnum líka liði og litum þá eins: líkir liðir hafa sömu breytur í sömu veldum.',
   group: 'Röðum líkum liðum saman (liðir með sömu breytur í sömu veldum).',
   combine: 'Tökum saman líka liði: leggjum saman stuðlana en breyturnar haldast óbreyttar.',
 };
@@ -549,13 +575,17 @@ function pass(n, kinds, negate = false) {
       const keys = ms.map((m) => m.k);
       const hasLike = new Set(keys).size !== keys.length || ms.some((m) => m.c === 0);
       if (!hasLike) return n;
+      if (!n.hl) {
+        kinds.add('color');
+        return { ...n, hl: true };
+      }
       const order = [...new Set(keys)].sort((a, b) => compareMono(ms.find((m) => m.k === a), ms.find((m) => m.k === b)));
       const grouped = order.flatMap((k) => ms.filter((m) => m.k === k));
       const adjacent = grouped.every((m, i) => m === ms[i]);
       if (!adjacent) {
         kinds.add('group');
         const idx = grouped.map((m) => ms.indexOf(m));
-        return { t: 'add', ts: idx.map((i) => n.ts[i]), flat: n.flat };
+        return { t: 'add', ts: idx.map((i) => n.ts[i]), flat: n.flat, hl: true };
       }
       kinds.add('combine');
       const res = [];
