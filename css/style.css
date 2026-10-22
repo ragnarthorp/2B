@@ -301,3 +301,25 @@ math-field::part(virtual-keyboard-toggle) { color: var(--muted); }
 @keyframes dd-draw { to { stroke-dashoffset: 0; } }
 @media (prefers-reduced-motion: reduce) { .dd-arc { animation: none; stroke-dashoffset: 0 !important; } }
 .diagrams { display: flex; flex-wrap: wrap; gap: 8px; }
+
+/* Litunartól */
+.color-panel > summary { cursor: pointer; font-weight: 900; color: var(--yellow); }
+.color-panel[open] > summary { margin-bottom: 6px; }
+.swatches { display: flex; gap: 10px; flex-wrap: wrap; margin: 6px 0 14px; }
+.swatch {
+  width: 40px; height: 40px; border-radius: 50%; border: 0; cursor: pointer;
+  background: var(--c); box-shadow: 0 3px 0 rgba(0,0,0,.3);
+  color: var(--text); font: inherit; font-size: 1rem;
+}
+.swatch.on { outline: 3px solid #fff; outline-offset: 3px; transform: scale(1.08); }
+.swatch.eraser { background: var(--surface-3); }
+.term-chips { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 1.35rem; }
+.chip-sign { color: var(--muted); font-weight: 800; padding: 0 2px; }
+.term-chip {
+  border: 2px dashed rgba(255,255,255,.25); background: rgba(11,15,58,.45); color: var(--text);
+  border-radius: 14px; padding: 4px 12px; cursor: pointer; font: inherit; min-height: 48px;
+  transition: transform .1s;
+}
+.term-chip:hover { border-color: rgba(255,255,255,.5); }
+.term-chip:active { transform: scale(.95); }
+.term-chip.colored { border: 2px solid var(--c); color: var(--c); background: color-mix(in srgb, var(--c) 22%, transparent); }

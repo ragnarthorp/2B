@@ -1,7 +1,7 @@
-import { parse, solveSteps, nextStep, expand, polyEqual, isFinalForm, diagnose, toTex, STEP_TEXT, ParseError } from './algebra.js';
+import { parse, solveSteps, nextStep, expand, polyEqual, isFinalForm, diagnose, toTex, STEP_TEXT, ParseError, topTerms, LIKE_COLORS } from './algebra.js';
 import { generate } from './generators.js';
 import { CHAPTERS, chapterById } from './chapters.js';
-import { el, math, richHtml, createEditor, rectFigure, heroArt, planetIcon, distDiagram } from './ui.js';
+import { el, math, richHtml, createEditor, rectFigure, heroArt, planetIcon, distDiagram, texHtml } from './ui.js';
 
 const app = document.getElementById('app');
 
@@ -227,6 +227,111 @@ function calculatorView(c) {
     out);
 }
 
+// ---------- Litunartól: nemandinn litar líka liði ----------
+
+const PALETTE = LIKE_COLORS.slice(0, 5);
+
+// node: stæðan sem á að lita. onArrange(tex): setur liðina, raðaða eftir litum, í ritilinn.
+// keyColors: litir sem nemandinn hefur þegar valið (breytuhluti -> litur); fylgja yfir í næstu línur.
+function colorTool(node, onArrange, keyColors = {}) {
+  const terms = topTerms(node);
+  const colors = terms.map((t) => (t.key !== null && keyColors[t.key] !== undefined ? keyColors[t.key] : null));
+  let current = 0;
+  const msg = el('p', { class: 'msg', 'aria-live': 'polite' });
+
+  const swatches = el('div', { class: 'swatches', role: 'radiogroup', 'aria-label': 'Litir' });
+  const drawSwatches = () => {
+    swatches.innerHTML = '';
+    PALETTE.forEach((c, i) => swatches.append(el('button', {
+      type: 'button', class: 'swatch' + (i === current ? ' on' : ''), style: `--c:${c}`,
+      role: 'radio', 'aria-checked': String(i === current), 'aria-label': `Litur ${i + 1}`,
+      onclick: () => { current = i; drawSwatches(); },
+    })));
+    swatches.append(el('button', {
+      type: 'button', class: 'swatch eraser' + (current === -1 ? ' on' : ''), title: 'Strokleður',
+      role: 'radio', 'aria-checked': String(current === -1), 'aria-label': 'Strokleður',
+      onclick: () => { current = -1; drawSwatches(); },
+    }, '⌫'));
+  };
+
+  const chips = el('div', { class: 'term-chips' });
+  const drawChips = () => {
+    chips.innerHTML = '';
+    terms.forEach((t, i) => {
+      if (i > 0 || t.s < 0) chips.append(el('span', { class: 'chip-sign' }, t.s < 0 ? '−' : '+'));
+      const c = colors[i] === null ? null : PALETTE[colors[i]];
+      chips.append(el('button', {
+        type: 'button', class: 'term-chip' + (c ? ' colored' : ''), style: c ? `--c:${c}` : null,
+        'aria-label': `Liður ${i + 1}`,
+        onclick: () => {
+          colors[i] = current === -1 || colors[i] === current ? null : current;
+          msg.textContent = '';
+          msg.className = 'msg';
+          drawChips();
+        },
+        html: texHtml((t.s < 0 && i === 0 ? '' : '') + t.tex),
+      }));
+    });
+  };
+
+  const check = () => {
+    const groups = {};
+    terms.forEach((t, i) => { if (t.key !== null) (groups[t.key] = groups[t.key] || []).push(i); });
+    const like = Object.values(groups).filter((g) => g.length > 1);
+    msg.className = 'msg bad';
+    if (!like.length) { msg.className = 'msg info'; msg.textContent = 'Hér eru engir líkir liðir til að lita.'; return; }
+    for (const g of like) {
+      if (g.some((i) => colors[i] === null)) {
+        const names = g.map((i) => (terms[i].s < 0 ? '−' : '') + terms[i].tex.replace(/\\[a-z]+|[{}]/g, ''));
+        msg.textContent = `${names.slice(0, -1).join(', ')} og ${names[names.length - 1]} eru líkir liðir. Litaðu þá alla í sama lit.`;
+        return;
+      }
+      if (new Set(g.map((i) => colors[i])).size > 1) {
+        msg.textContent = 'Líkir liðir eiga að vera í sama lit. Athugaðu breyturnar og veldin.';
+        return;
+      }
+    }
+    const used = {};
+    for (const [k, g] of Object.entries(groups)) for (const i of g) {
+      if (colors[i] === null) continue;
+      if (used[colors[i]] !== undefined && used[colors[i]] !== k) {
+        msg.textContent = 'Liðir sem eru ekki líkir eiga að vera í ólíkum litum. Líkir liðir hafa nákvæmlega sömu breytur í sömu veldum.';
+        return;
+      }
+      used[colors[i]] = k;
+    }
+    if (terms.some((t, i) => t.key === null && colors[i] !== null) || false) { /* liðir sem eru ekki einliðir mega vera litaðir */ }
+    terms.forEach((t, i) => { if (t.key !== null && colors[i] !== null) keyColors[t.key] = colors[i]; });
+    msg.className = 'msg good';
+    msg.textContent = 'Rétt flokkað! Nú geturðu raðað litunum saman.';
+    arrange.hidden = false;
+  };
+
+  const arrange = el('button', {
+    class: 'btn ghost', hidden: true,
+    onclick: () => {
+      // Lituðum liðum raðað saman eftir lit, ólitaðir aftast
+      const order = terms.map((t, i) => i).sort((a, b) => {
+        const ca = colors[a] === null ? 99 : colors[a], cb = colors[b] === null ? 99 : colors[b];
+        return ca - cb || a - b;
+      });
+      const tex = order.map((i, j) => (terms[i].s < 0 ? '-' : j === 0 ? '' : '+') + terms[i].tex).join('');
+      onArrange(tex);
+    },
+  }, 'Raða litunum saman í ritilinn');
+
+  drawSwatches();
+  drawChips();
+  return el('div', { class: 'color-tool' },
+    el('p', { class: 'help' }, 'Veldu lit og smelltu á liðina. Litaðu líka liði í sama lit og ólíka liði í ólíkum litum.'),
+    swatches, chips,
+    el('div', { class: 'row' },
+      el('button', { class: 'btn', onclick: check }, 'Athuga litun'),
+      arrange,
+      el('button', { class: 'btn ghost', onclick: () => { colors.fill(null); arrange.hidden = true; msg.textContent = ''; drawChips(); } }, 'Hreinsa liti')),
+    msg);
+}
+
 // Æfing í skrefum
 function practiceView(c, presetExpr) {
   let level = 0;
@@ -280,12 +385,32 @@ function practiceView(c, presetExpr) {
     const msg = el('p', { class: 'msg', 'aria-live': 'polite' });
     const ed = createEditor({ placeholder: 'Skrifaðu næsta skref', onEnter: () => check() });
 
+    const keyColors = {};
+    const coloredTex = (node) => topTerms(node).map((t, i) => {
+      const body = (t.s < 0 ? '-' : i === 0 ? '' : '+') + t.tex;
+      const c = t.key !== null ? keyColors[t.key] : undefined;
+      return c === undefined ? body : (t.s < 0 || i === 0 ? '' : '+') + '\\textcolor{' + PALETTE[c] + '}{' + (t.s < 0 ? '-' : '') + t.tex + '}';
+    }).join('');
+    const colorBox = el('details', { class: 'panel color-panel' });
+    const drawColor = () => {
+      const node = current();
+      const terms = topTerms(node);
+      const keys = terms.map((t) => t.key).filter((k) => k !== null);
+      const hasLike = new Set(keys).size < keys.length;
+      colorBox.hidden = terms.length < 2 || isFinalForm(node) && !hasLike;
+      colorBox.open = hasLike;
+      colorBox.innerHTML = '';
+      colorBox.append(el('summary', {}, '🎨 Litaðu líka liði'),
+        colorTool(node, (tex) => { ed.setValue(tex); ed.focus(); }, keyColors));
+    };
+
     const draw = () => {
+      drawColor();
       work.innerHTML = '';
       for (const l of lines) {
         work.append(el('li', { class: 'step ' + (l.shown ? 'shown' : 'ok') },
           l.step ? diagramsView(l.step) : null,
-          el('div', { class: 'step-math' }, el('span', { class: 'eq' }, '='), math(l.tex), el('span', { class: 'mark' }, l.shown ? 'sýnt' : '✓')),
+          el('div', { class: 'step-math' }, el('span', { class: 'eq' }, '='), math(l.shown ? l.tex : coloredTex(l.node)), el('span', { class: 'mark' }, l.shown ? 'sýnt' : '✓')),
           l.step ? whyView(l.step) : null));
       }
     };
@@ -297,6 +422,7 @@ function practiceView(c, presetExpr) {
       msg.className = 'msg good';
       msg.textContent = usedHelp ? 'Komið! Reyndu næst að klára án hjálpar.' : 'Vel gert! Þetta er fullstytt og rétt.';
       inputBox.hidden = true;
+      colorBox.hidden = true;
       after.hidden = false;
     };
 
@@ -354,7 +480,7 @@ function practiceView(c, presetExpr) {
     const after = el('div', { class: 'row', hidden: true },
       el('button', { class: 'btn', onclick: () => newProblem(generate(c.id, level)) }, 'Nýtt dæmi →'));
 
-    area.append(el('section', { class: 'example' }, problemHeader(problem), work), inputBox, msg, after);
+    area.append(el('section', { class: 'example' }, problemHeader(problem), work), colorBox, inputBox, msg, after);
     draw();
     if (done()) finish();
     setTimeout(() => ed.focus(), 50);

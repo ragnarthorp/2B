@@ -917,3 +917,19 @@ export function diagnose(expected, given) {
 export function texOf(src) {
   return toTex(parse(src));
 }
+
+// Liðir summu fyrir litunartólið: [{s, tex, key, node}]. key er null ef liðurinn er ekki einliða.
+export function topTerms(n) {
+  const ts = n.t === 'add' ? n.ts : [{ s: 1, n }];
+  return ts.map(({ s, n: t }) => {
+    const [s2, a] = t.t === 'add' ? [1, t] : absNode(t);
+    const mono = isMonoish(t) ? toMono(t) : null;
+    return {
+      s: s * s2,
+      tex: a.t === 'add' ? '\\left(' + toTex(a) + '\\right)' : toTex(a),
+      key: mono ? monoKey(mono.v) : null,
+      node: t,
+      sign: s,
+    };
+  });
+}
