@@ -550,7 +550,9 @@ function examView() {
     tick();
     timer = setInterval(tick, 1000);
 
-    let idx = 0, results = null;
+    // results[i] er null þar til dæmi i hefur verið yfirfarið (stakt eða við skil)
+    let idx = 0, finished = false;
+    const results = qs.map(() => null);
     // Hvert dæmi hefur eina eða fleiri línur; síðasta útfyllta línan er svarið.
     const items = qs.map((p) => ({ p, lines: [], linesEl: el('ol', { class: 'work-lines' }) }));
     const values = (it) => it.lines.map((l) => l.ed.getValue().trim());
@@ -593,24 +595,31 @@ function examView() {
       render();
     }
 
+    const gradedCount = () => results.filter(Boolean).length;
+    const correctCount = () => results.filter((r) => r && r.ok).length;
+
     function render() {
       const it = items[idx];
+      const r = results[idx];
       view.innerHTML = '';
-      const cls = (i) => (results ? (results[i].ok ? 'right' : 'wrong') : answered(i) ? 'done' : '');
+      const cls = (i) => (results[i] ? (results[i].ok ? 'right' : 'wrong') : answered(i) ? 'done' : '');
       const head = el('div', { class: 'row exam-head' },
-        el('b', {}, results ? 'Yfirferð' : `Dæmi ${idx + 1} af ${items.length}`),
-        results ? el('span', { class: 'score' }, `${results.filter((r) => r.ok).length} / ${items.length} rétt`) : null,
+        el('b', {}, finished ? 'Yfirferð' : `Dæmi ${idx + 1} af ${items.length}`),
+        gradedCount() ? el('span', { class: 'score' }, finished
+          ? `${correctCount()} / ${items.length} rétt`
+          : `${correctCount()} rétt af ${gradedCount()} yfirförnum`) : null,
         clock);
-      const card = el('section', { class: 'example q' + (results ? (results[idx].ok ? ' right' : ' wrong') : '') },
+      const card = el('section', { class: 'example q' + (r ? (r.ok ? ' right' : ' wrong') : '') },
         el('h2', {}, `${idx + 1}.`, el('span', { class: 'chip' }, it.p.chapter)),
         problemHeader(it.p));
-      if (!results) {
+      if (!r) {
         card.append(
           el('p', { class: 'help' }, 'Reiknaðu í eins mörgum línum og þú vilt. Enter bætir við línu. Síðasta línan er svarið þitt og á að vera fullstytt.'),
           it.linesEl,
-          el('button', { class: 'btn ghost add-line', onclick: () => addLine(it).ed.focus() }, '+ Bæta við línu'));
+          el('div', { class: 'row' },
+            el('button', { class: 'btn ghost add-line', onclick: () => addLine(it).ed.focus() }, '+ Bæta við línu'),
+            el('button', { class: 'btn', onclick: () => gradeOne(idx) }, 'Fara yfir þetta dæmi strax')));
       } else {
-        const r = results[idx];
         const start = parse(it.p.expr);
         const written = values(it).filter(Boolean);
         const work = el('ol', { class: 'steps review-lines' });
@@ -629,22 +638,40 @@ function examView() {
           el('p', { class: 'msg ' + (r.ok ? 'good' : 'bad') }, r.text),
           el('h3', {}, 'Lausn skref fyrir skref'),
           stepper(parse(it.p.expr)));
+        const nextOpen = results.findIndex((x, i) => !x && i > idx);
+        const anyOpen = results.findIndex((x) => !x);
+        const target = nextOpen >= 0 ? nextOpen : anyOpen;
+        if (!finished && target >= 0) card.append(el('div', { class: 'row' }, el('button', { class: 'btn', onclick: () => go(target) }, `Áfram í dæmi ${target + 1} →`)));
       }
       const actions = el('div', { class: 'row' });
-      if (!results) {
-        actions.append(el('button', { class: 'btn big', onclick: submit }, 'Skila prófi'));
+      if (!finished) {
+        actions.append(el('button', { class: 'btn big', onclick: submit }, gradedCount() ? 'Skila restinni af prófinu' : 'Skila prófi'));
       } else {
-        actions.append(el('button', { class: 'btn', onclick: () => { results = null; setup.hidden = false; testArea.innerHTML = ''; setup.scrollIntoView(); } }, 'Nýtt próf'));
+        actions.append(el('button', { class: 'btn', onclick: () => { setup.hidden = false; testArea.innerHTML = ''; setup.scrollIntoView(); } }, 'Nýtt próf'));
       }
       view.append(head, pager(items.length, idx, go, cls), card, actions);
-      if (!results) setTimeout(() => it.lines[it.lines.length - 1].ed.focus(), 30);
+      if (!r) setTimeout(() => it.lines[it.lines.length - 1].ed.focus(), 30);
+    }
+
+    function checkFinished() {
+      if (results.every(Boolean)) { finished = true; clearInterval(timer); }
+    }
+
+    // Fara yfir eitt dæmi: því er læst og lausnin sýnd
+    function gradeOne(i) {
+      const it = items[i];
+      if (!answered(i) && !confirm('Þú hefur ekki skrifað svar. Viltu samt láta fara yfir dæmið?')) return;
+      results[i] = gradeAnswer(it.p, finalAnswer(it));
+      checkFinished();
+      render();
     }
 
     function submit() {
-      const missing = items.filter((_, i) => !answered(i)).length;
+      const open = items.map((_, i) => i).filter((i) => !results[i]);
+      const missing = open.filter((i) => !answered(i)).length;
       if (missing && !confirm(`Þú átt eftir að svara ${missing} ${missing === 1 ? 'dæmi' : 'dæmum'}. Viltu skila samt?`)) return;
-      clearInterval(timer);
-      results = items.map((it) => gradeAnswer(it.p, finalAnswer(it)));
+      for (const i of open) results[i] = gradeAnswer(items[i].p, finalAnswer(items[i]));
+      checkFinished();
       idx = 0;
       render();
       view.scrollIntoView({ behavior: 'smooth' });
