@@ -21,6 +21,13 @@ function tryParse(src) {
 
 const explain = (kinds) => kinds.map((k) => STEP_TEXT[k]).filter(Boolean);
 
+// Útskýring á skrefi: almenn regla og svo nákvæmlega hvað er reiknað hér
+function whyView(s) {
+  return el('div', { class: 'step-why' },
+    el('div', {}, explain(s.kinds).join(' ')),
+    s.notes && s.notes.length ? el('div', { class: 'step-notes' }, s.notes.map((n) => el('span', { class: 'note' }, n))) : null);
+}
+
 // Lausn skref fyrir skref
 function stepsView(node, { showStart = true } = {}) {
   const steps = solveSteps(node);
@@ -32,7 +39,7 @@ function stepsView(node, { showStart = true } = {}) {
   steps.forEach((s, i) => {
     list.append(el('li', { class: 'step' + (i === steps.length - 1 ? ' final' : '') },
       el('div', { class: 'step-math' }, el('span', { class: 'eq' }, '='), math(s.tex)),
-      el('div', { class: 'step-why' }, explain(s.kinds).join(' '))));
+      whyView(s)));
   });
   return list;
 }
@@ -56,7 +63,7 @@ function stepper(node) {
       const last = i === steps.length - 1;
       list.append(el('li', { class: 'step' + (last ? ' final' : '') + (animate && i === shown - 1 ? ' new' : '') },
         el('div', { class: 'step-math' }, el('span', { class: 'eq' }, '='), math(s.tex)),
-        el('div', { class: 'step-why' }, explain(s.kinds).join(' '))));
+        whyView(s)));
     });
     next.hidden = all.hidden = shown >= steps.length;
     reset.hidden = shown === 0;
@@ -262,7 +269,7 @@ function practiceView(c, presetExpr) {
       for (const l of lines) {
         work.append(el('li', { class: 'step ' + (l.shown ? 'shown' : 'ok') },
           el('div', { class: 'step-math' }, el('span', { class: 'eq' }, '='), math(l.tex), el('span', { class: 'mark' }, l.shown ? 'sýnt' : '✓')),
-          l.why ? el('div', { class: 'step-why' }, l.why) : null));
+          l.step ? whyView(l.step) : null));
       }
     };
 
@@ -304,7 +311,7 @@ function practiceView(c, presetExpr) {
     const showNext = () => {
       const s = nextStep(current());
       if (!s) return;
-      lines.push({ node: s.node, tex: s.tex, shown: true, why: explain(s.kinds).join(' ') });
+      lines.push({ node: s.node, tex: s.tex, shown: true, step: s });
       draw();
       msg.textContent = '';
       if (isFinalForm(s.node)) finish();
@@ -312,7 +319,7 @@ function practiceView(c, presetExpr) {
 
     const showAll = () => {
       let s;
-      while ((s = nextStep(current()))) lines.push({ node: s.node, tex: s.tex, shown: true, why: explain(s.kinds).join(' ') });
+      while ((s = nextStep(current()))) lines.push({ node: s.node, tex: s.tex, shown: true, step: s });
       draw();
       finish();
     };

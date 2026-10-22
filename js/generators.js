@@ -48,7 +48,8 @@ const ch11 = [
     level: 1,
     make() {
       const v = pick(['x', 'a', 'y']);
-      return { expr: `${nz(-6, 6)}·${par(nz(-6, 6) + v)}·${v}` };
+      const k = () => pick([-1, 1]) * ri(2, 6);
+      return { expr: `${k()}·${par(k() + v)}·${v}` };
     },
   },
   // x·2·y·x·y·3

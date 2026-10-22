@@ -297,8 +297,8 @@ function absNode(n) {
     if (s < 0) {
       const isOne = (a.t === 'num' && a.v === 1) || (a.t === 'mono' && a.c === 1 && sortedVars(a.v).length === 0);
       const rest = n.f.slice(1);
-      if (isOne && rest.length) return [-1, rest.length === 1 ? rest[0] : { t: 'mul', f: rest }];
-      return [-1, { t: 'mul', f: [a, ...rest] }];
+      if (isOne && rest.length) return [-1, rest.length === 1 ? rest[0] : { ...n, f: rest }];
+      return [-1, { ...n, f: [a, ...rest] }];
     }
   }
   return [1, n];
@@ -384,8 +384,8 @@ export function toTex(n) {
           const prevPar = needsParensInMul(prev, i === 1);
           const prevNum = (prev.t === 'num' && prev.v !== 1) || (prev.t === 'mono' && !sortedVars(prev.v).length && prev.c !== 1);
           let juxt;
-          if (simple) juxt = true;
-          else if (n.prod) juxt = false;
+          if (simple && !n.atoms) juxt = true;
+          else if (n.prod || n.atoms) juxt = false;
           else juxt = par || (isVarish(f) && !prevPar && (isVarish(prev) || (i === 1 && prevNum)));
           out += juxt ? '' : '\\cdot ';
         }
@@ -451,7 +451,12 @@ export function toText(n) {
 export const STEP_TEXT = {
   pow: 'Skrifum veldið sem margfeldi, t.d. (a+b)² = (a+b)(a+b).',
   dist: 'Margföldum inn í svigann: hver liður er margfaldaður með hverjum lið.',
-  mono: 'Einföldum hvern lið: margföldum saman tölurnar, leggjum saman veldisvísa sömu breytu (x·x = x²) og röðum breytunum í stafrófsröð.',
+  mono: 'Skrifum margfeldið sem einn lið, t.d. 3·x = 3x.',
+  mpow: 'Veldi þýðir endurtekin margföldun: (2x)² = 2x·2x.',
+  msign: 'Byrjum á formerkinu. Teljum mínusana: slétt tala af mínusum gefur plús, oddatala gefur mínus.',
+  morder: 'Röðum þáttunum: tölurnar fremst og sömu breytur saman í stafrófsröð. Röð þátta skiptir ekki máli í margföldun.',
+  mnum: 'Margföldum tölurnar saman.',
+  mvar: 'Margföldum sömu breytur saman með því að leggja saman veldisvísana (x·x = x², a²·a = a³).',
   paren: 'Leysum upp sviga. Mínus fyrir framan sviga breytir formerki allra liða inni í svigunum.',
   color: 'Finnum líka liði og litum þá eins: líkir liðir hafa sömu breytur í sömu veldum.',
   group: 'Röðum líkum liðum saman (liðir með sömu breytur í sömu veldum).',
@@ -481,6 +486,148 @@ function distribute(A, B) {
 
 const isBigAdd = (n) => n.t === 'add' && !isMonoish(n);
 
+// ---------- Margföldun einliða í litlum skrefum ----------
+
+const SUP = { 0: '⁰', 1: '¹', 2: '²', 3: '³', 4: '⁴', 5: '⁵', 6: '⁶', 7: '⁷', 8: '⁸', 9: '⁹' };
+const sup = (e) => (e === 1 ? '' : String(e).split('').map((d) => SUP[d]).join(''));
+const varText = (n, e) => n + sup(e);
+export function monoText(c, v) {
+  const vs = sortedVars(v);
+  const vt = vs.map((k) => varText(k, v[k])).join('');
+  if (!vs.length) return String(c).replace('-', '−');
+  return (c === -1 ? '−' : c === 1 ? '' : String(c).replace('-', '−')) + vt;
+}
+
+const note = (kinds, text) => {
+  text = text.replace(/\^\((\d+)\)|\^(\d+)/g, (_, a, b) => sup(+(a || b))).replace(/-/g, '−');
+  if (!kinds.notes) kinds.notes = [];
+  if (!kinds.notes.includes(text)) kinds.notes.push(text);
+};
+
+// Brýtur einliðu niður í þætti: {minus, atoms:[{k:'num',v}|{k:'var',n,e}], firstNeg}
+function atomize(n) {
+  let minus = 0;
+  const atoms = [];
+  const rec = (n, power) => {
+    switch (n.t) {
+      case 'num':
+        if (n.v < 0) minus += power;
+        if (n.v === -1) return; // -1 er bara formerki
+        for (let i = 0; i < power; i++) atoms.push({ k: 'num', v: Math.abs(n.v) });
+        return;
+      case 'var': atoms.push({ k: 'var', n: n.n, e: power }); return;
+      case 'mono': {
+        if (n.c < 0) minus += power;
+        if (Math.abs(n.c) !== 1 || !sortedVars(n.v).length) for (let i = 0; i < power; i++) atoms.push({ k: 'num', v: Math.abs(n.c) });
+        for (const k of sortedVars(n.v)) atoms.push({ k: 'var', n: k, e: n.v[k] * power });
+        return;
+      }
+      case 'neg': minus += power; rec(n.n, power); return;
+      case 'add': if (n.ts[0].s < 0) minus += power; rec(n.ts[0].n, power); return;
+      case 'pow': rec(n.b, power * n.e); return;
+      case 'mul': for (const f of n.f) rec(f, power); return;
+    }
+  };
+  rec(n, 1);
+  return { minus, atoms };
+}
+
+function atomsNode(neg, atoms) {
+  const nums = atoms.filter((a) => a.k === 'num');
+  const vars = atoms.filter((a) => a.k === 'var');
+  const final = nums.length <= 1 && (nums.length === 0 || atoms[0] === nums[0]) &&
+    new Set(vars.map((a) => a.n)).size === vars.length &&
+    vars.every((a, i) => i === 0 || a.n > vars[i - 1].n) &&
+    !(nums.length === 1 && nums[0].v === 1 && vars.length);
+  if (final) {
+    const c = (nums.length ? nums[0].v : 1) * (neg ? -1 : 1);
+    if (c === 0) return mono(0);
+    return mono(c, Object.fromEntries(vars.map((a) => [a.n, a.e])));
+  }
+  const f = atoms.map((a) => (a.k === 'num' ? { t: 'num', v: a.v } : a.e === 1 ? { t: 'var', n: a.n } : { t: 'pow', b: { t: 'var', n: a.n }, e: a.e }));
+  if (neg) {
+    if (f[0].t === 'num') f[0] = { t: 'num', v: -f[0].v };
+    else f.unshift({ t: 'num', v: -1 });
+  }
+  return { t: 'mul', f, atoms: true };
+}
+
+// Finnur veldi af margfeldi, t.d. (2x)², og skrifar það sem margfeldi
+function expandProductPowers(n) {
+  let found = null;
+  const rec = (n) => {
+    if (n.t === 'pow' && n.b.t !== 'var' && !(n.b.t === 'num') && n.e >= 2 && n.e <= 4) {
+      found = n;
+      return { t: 'mul', f: Array.from({ length: n.e }, () => n.b), prod: true };
+    }
+    if (n.t === 'mul') { const f = n.f.map(rec); return found ? { ...n, f } : n; }
+    if (n.t === 'neg') { const c = rec(n.n); return found ? { t: 'neg', n: c } : n; }
+    if (n.t === 'add' && n.ts.length === 1) { const c = rec(n.ts[0].n); return found ? { ...n, ts: [{ s: n.ts[0].s, n: c }] } : n; }
+    return n;
+  };
+  const out = rec(n);
+  return found ? { node: out, pow: found } : null;
+}
+
+// Eitt lítið skref í margföldun einliðu. extraNeg = mínus sem stendur fyrir framan liðinn.
+// Skilar nýjum hnút, eða null ef ekkert er eftir að gera.
+function monoStep(n, extraNeg, kinds) {
+  const ex = expandProductPowers(n);
+  if (ex) {
+    kinds.add('mpow');
+    note(kinds, `${toText(ex.pow)} = ${toText({ t: 'mul', f: Array.from({ length: ex.pow.e }, () => ex.pow.b), prod: true })}`);
+    return extraNeg ? { t: 'add', ts: [{ s: -1, n: ex.node }] } : ex.node;
+  }
+  const { minus: m0, atoms } = atomize(n);
+  const minus = m0 + extraNeg;
+  const neg = minus % 2 === 1;
+  const leading = extraNeg ? true : absNode(n)[0] < 0;
+  const hasNumMinus = minus > 0 && !(minus === 1 && leading);
+  if (hasNumMinus) {
+    kinds.add('msign');
+    note(kinds, minus === 1 ? 'Einn mínus → útkoman verður neikvæð.'
+      : `${minus} mínusar → ${neg ? 'oddatala, útkoman verður neikvæð' : 'mínus sinnum mínus verður plús'}.`);
+    return atomsNode(neg, atoms);
+  }
+  const nums = atoms.filter((a) => a.k === 'num');
+  const vars = atoms.filter((a) => a.k === 'var');
+  const ordered = [...nums, ...[...vars].sort((a, b) => (a.n < b.n ? -1 : a.n > b.n ? 1 : 0))];
+  if (ordered.some((a, i) => a !== atoms[i])) {
+    kinds.add('morder');
+    return atomsNode(neg, ordered);
+  }
+  if (nums.length >= 2) {
+    const prod = nums.reduce((a, b) => a * b.v, 1);
+    kinds.add('mnum');
+    note(kinds, `${nums.map((a) => a.v).join('·')} = ${prod}`);
+    return atomsNode(neg, [{ k: 'num', v: prod }, ...vars]);
+  }
+  if (nums.length === 1 && nums[0].v === 1 && vars.length) {
+    kinds.add('mnum');
+    note(kinds, `1·${varText(vars[0].n, vars[0].e)} = ${varText(vars[0].n, vars[0].e)}`);
+    return atomsNode(neg, vars);
+  }
+  if (new Set(vars.map((a) => a.n)).size !== vars.length) {
+    kinds.add('mvar');
+    const merged = [];
+    for (const a of vars) {
+      const last = merged[merged.length - 1];
+      if (last && last.n === a.n) { last.parts.push(a.e); last.e += a.e; } else merged.push({ k: 'var', n: a.n, e: a.e, parts: [a.e] });
+    }
+    for (const a of merged) {
+      if (a.parts.length < 2) continue;
+      const lhs = a.parts.map((e) => varText(a.n, e)).join('·');
+      const sum = a.parts.map((e) => sup(e) || '¹').join('⁺');
+      note(kinds, a.parts.every((e) => e === 1) ? `${lhs} = ${varText(a.n, a.e)}` : `${lhs} = ${a.n}${sum} = ${varText(a.n, a.e)}`);
+    }
+    return atomsNode(neg, [...nums, ...merged.map(({ n: nm, e }) => ({ k: 'var', n: nm, e }))]);
+  }
+  const out = atomsNode(neg, atoms);
+  if (toTex(out) === toTex(extraNeg ? { t: 'add', ts: [{ s: -1, n }] } : n)) return out.t === 'mono' && n.t !== 'mono' ? out : null;
+  kinds.add('mono');
+  return out;
+}
+
 // Ein umferð. Skilar {n, kinds:Set}. negate: margfalda allt með -1 (frá mínus í summu).
 function pass(n, kinds, negate = false) {
   switch (n.t) {
@@ -488,7 +635,7 @@ function pass(n, kinds, negate = false) {
     case 'neg': {
       const c = pass(n.n, kinds);
       if (c !== n.n) return { t: 'neg', n: c };
-      if (isMonoish(c)) { kinds.add('mono'); return monoNode(toMono(n)); }
+      if (isMonoish(c)) return monoStep(n, 0, kinds) || monoNode(toMono(n));
       kinds.add('paren');
       return { t: 'add', ts: [{ s: -1, n: c }] };
     }
@@ -498,8 +645,7 @@ function pass(n, kinds, negate = false) {
       if (n.e === 0) { kinds.add('mono'); return { t: 'num', v: 1 }; }
       if (isMonoish(b)) {
         if (isSimple(n)) return n;
-        kinds.add('mono');
-        return monoNode(toMono(n));
+        return monoStep(n, 0, kinds) || monoNode(toMono(n));
       }
       if (n.e === 1) { kinds.add('pow'); return b; }
       kinds.add('pow');
@@ -512,9 +658,10 @@ function pass(n, kinds, negate = false) {
       if (n.f.some((x) => x.t === 'mul')) return pass(mkMul(n.f), kinds, negate);
       if (n.f.every(isMonoish)) {
         if (isSimple(n) && !negate && !n.prod) return n;
+        if (!negate) return monoStep(n, 0, kinds) || monoNode(toMono(n));
         kinds.add('mono');
         const m = toMono(n);
-        return monoNode(negate ? { c: -m.c, v: m.v } : m);
+        return monoNode({ c: -m.c, v: m.v });
       }
       const monos = n.f.filter((x) => !isBigAdd(x));
       const adds = n.f.filter(isBigAdd);
@@ -545,12 +692,17 @@ function pass(n, kinds, negate = false) {
     case 'add': {
       let changed = false;
       const ts = n.ts.map(({ s, n: t }) => {
+        // Mínus fyrir framan margfeldi einliða telst með formerkjunum
+        if (s < 0 && t.t !== 'add' && t.t !== 'mono' && isMonoish(t) && !isSimple(t)) {
+          const y = monoStep(t, 1, kinds);
+          if (y) { changed = true; return y.t === 'add' ? { s: 1, n: y } : (absNode(y)[0] < 0 ? { s: 1, n: y } : { s: 1, n: y }); }
+        }
         // Mínus fyrir framan einliðu sinnum sviga: tökum mínusinn með inn í margföldunina.
         const fold = s < 0 && t.t === 'mul' && !isBigAdd(t.f[0]) && t.f.filter(isBigAdd).length === 1 && !t.f.some((x) => x.t === 'pow' && isBigAdd(x.b));
         if (fold) {
           const k2 = new Set();
           const y = pass(t, k2, true);
-          if (k2.has('dist')) { k2.forEach((k) => kinds.add(k)); changed = true; return { s: 1, n: y }; }
+          if (k2.has('dist')) { k2.forEach((k) => kinds.add(k)); (k2.notes || []).forEach((x) => note(kinds, x)); changed = true; return { s: 1, n: y }; }
         }
         const y = pass(t, kinds);
         if (y !== t) changed = true;
@@ -590,7 +742,12 @@ function pass(n, kinds, negate = false) {
       kinds.add('combine');
       const res = [];
       for (const k of order) {
-        const c = ms.filter((m) => m.k === k).reduce((a, m) => a + m.c, 0);
+        const grp = ms.filter((m) => m.k === k);
+        const c = grp.reduce((a, m) => a + m.c, 0);
+        if (grp.length > 1) {
+          const lhs = grp.map((m, i) => (i === 0 ? monoText(m.c, m.v) : (m.c < 0 ? ' − ' : ' + ') + monoText(Math.abs(m.c), m.v))).join('');
+          note(kinds, `${lhs} = ${c === 0 ? '0' : monoText(c, grp[0].v)}`);
+        }
         if (c !== 0) res.push(mono(c, ms.find((m) => m.k === k).v));
       }
       if (!res.length) return mono(0);
@@ -614,7 +771,7 @@ export function solveSteps(start, maxSteps = 60) {
     cur = next;
     if (tex === curTex) continue;
     curTex = tex;
-    steps.push({ tex, kinds: [...kinds], node: next });
+    steps.push({ tex, kinds: [...kinds], notes: kinds.notes || [], node: next });
   }
   return steps;
 }

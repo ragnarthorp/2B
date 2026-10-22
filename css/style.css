@@ -188,3 +188,8 @@ details.theory[open] > summary { margin-bottom: 8px; }
 .exam-head .stats { margin-left: 0; }
 h3 { font-size: 1rem; margin: 16px 0 4px; }
 .your-answer { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 1.05rem; }
+.step-notes { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+.step-notes .note {
+  background: var(--accent-soft); color: var(--text); border-radius: 6px;
+  padding: 1px 8px; font-size: 0.95rem; font-family: "Cambria Math", "STIX Two Math", Georgia, serif;
+}
