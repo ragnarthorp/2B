@@ -212,6 +212,20 @@ const ch21 = [
       return { expr: `${k}x(xy + ${m}) + y(${ri(1, 5)} - ${k}x^2) - ${k * m}x` };
     },
   },
+  // Tveir liðir sinnum þrír liðir, t.d. (3x-2)(x^2+x-4)
+  {
+    level: 3,
+    make() {
+      return { expr: `${par(poly([[ri(1, 3), 'x'], [nz(-5, 5), '']]))}${par(poly([[1, 'x^2'], [nz(-4, 4), 'x'], [nz(-6, 6), '']]))}` };
+    },
+  },
+  // Þrír liðir sinnum þrír liðir, t.d. (x+2y-1)(2x-y+3)
+  {
+    level: 3,
+    make() {
+      return { expr: `${par(poly([[1, 'x'], [nz(-3, 3), 'y'], [nz(-4, 4), '']]))}${par(poly([[ri(1, 3), 'x'], [nz(-3, 3), 'y'], [nz(-4, 4), '']]))}` };
+    },
+  },
 ];
 
 export const GENERATORS = { '1.1': ch11, '2.1': ch21 };

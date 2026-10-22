@@ -1,6 +1,7 @@
 import { parse, solveSteps, nextStep, expand, polyEqual, isFinalForm, diagnose, toTex, STEP_TEXT, ParseError, topTerms, LIKE_COLORS } from './algebra.js';
 import { generate } from './generators.js';
 import { CHAPTERS, chapterById } from './chapters.js';
+import { notesView } from './notes.js';
 import { el, math, richHtml, createEditor, rectFigure, heroArt, planetIcon, distDiagram, texHtml } from './ui.js';
 
 const app = document.getElementById('app');
@@ -122,6 +123,11 @@ function homeView() {
         el('span', { class: 'card-num' }, 'KAFLI ' + c.id),
         el('span', { class: 'card-title' }, c.title),
         el('span', { class: 'card-sub' }, `${c.examples.length} sýnidæmi · reiknivél · æfingar`))),
+      el('a', { class: 'card', href: '#/glosur' },
+        planetIcon('notes'),
+        el('span', { class: 'card-num' }, 'GLÓSUR'),
+        el('span', { class: 'card-title' }, 'Glósublað fyrir próf'),
+        el('span', { class: 'card-sub' }, 'Allt sem þú þarft að kunna á einum stað, hægt að prenta')),
       el('a', { class: 'card', href: '#/prof' },
         planetIcon('check'),
         el('span', { class: 'card-num' }, 'PRÓF'),
@@ -696,6 +702,7 @@ function route() {
   if (!parts[0]) view = homeView();
   else if (parts[0] === 'kafli') view = chapterView(parts[1], parts[2], parts.slice(3).join('/'));
   else if (parts[0] === 'prof') view = examView();
+  else if (parts[0] === 'glosur') view = notesView();
   else if (parts[0] === 'reiknivel') view = el('div', { class: 'page' }, el('h1', {}, 'Reiknivél'), calculatorView(null));
   else view = notFound();
   app.innerHTML = '';
@@ -711,6 +718,7 @@ function buildNav() {
   const nav = document.getElementById('topnav');
   nav.append(
     ...CHAPTERS.map((c) => el('a', { href: `#/kafli/${c.id}` }, c.id, ' ', el('span', { class: 'hide-sm' }, c.title))),
+    el('a', { href: '#/glosur' }, 'Glósur'),
     el('a', { href: '#/prof' }, 'Prófæfing'),
     el('a', { href: '#/reiknivel' }, 'Reiknivél'));
 }

@@ -6,6 +6,8 @@ Kennsluvefur í stærðfræði. Hver kafli inniheldur:
 - **Reiknivél** þar sem nemandi skrifar inn eigið dæmi og fær lausnina í skrefum.
 - **Æfingu** þar sem nemandi fær dæmi (létt, miðlungs, erfitt eða blandað) eða skrifar sitt eigið og reiknar það sjálfur skref fyrir skref. Hvert skref er yfirfarið og hægt er að fá vísbendingu, sjá næsta skref eða alla lausnina.
 
+Á síðunni **Glósur** er glósublað fyrir próf með öllu sem þarf að kunna (hægt að prenta).
+
 Auk þess er **prófæfing**: nemandi hakar við kafla, velur fjölda dæma og erfiðleikastig og svarar einu dæmi í einu. Eftir skil fær hann einkunn og getur farið yfir hvert dæmi og séð lausnina skref fyrir skref.
 
 Kaflar sem eru komnir:
@@ -48,6 +50,7 @@ Prófin keyra öll sýnidæmin og 1800 handahófsdæmi og athuga að hvert skref
 | `js/generators.js` | Býr til æfingadæmi af handahófi fyrir hvern kafla |
 | `js/chapters.js` | Texti kaflanna og sýnidæmin |
 | `js/ui.js` | Ritill, birting stærðfræði og myndir |
+| `js/notes.js` | Glósublaðið |
 | `js/app.js` | Síður: forsíða, kaflar, reiknivél, æfing og prófæfing |
 
 **Nýr kafli:** bættu hlut við `CHAPTERS` í `js/chapters.js` og lista af dæmaframleiðendum undir sama auðkenni í `GENERATORS` í `js/generators.js`.
