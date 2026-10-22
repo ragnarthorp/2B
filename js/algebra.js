@@ -292,7 +292,7 @@ function absNode(n) {
   if (n.t === 'num' && n.v < 0) return [-1, { t: 'num', v: -n.v }];
   if (n.t === 'mono' && n.c < 0) return [-1, mono(-n.c, n.v)];
   if (n.t === 'neg') { const [s, a] = absNode(n.n); return [-s, a]; }
-  if (n.t === 'mul' && n.f.length) {
+  if (n.t === 'mul' && n.f.length && !manyNeg(n)) {
     const [s, a] = absNode(n.f[0]);
     if (s < 0) {
       const isOne = (a.t === 'num' && a.v === 1) || (a.t === 'mono' && a.c === 1 && sortedVars(a.v).length === 0);
@@ -302,6 +302,11 @@ function absNode(n) {
     }
   }
   return [1, n];
+}
+
+// Margfeldi útskrifaðra þátta með fleiri en einni neikvæðri tölu, t.d. (−2)·(−3)·x
+function manyNeg(n) {
+  return n.t === 'mul' && n.atoms && n.f.filter((f) => f.t === 'num' && f.v < 0).length >= 2;
 }
 
 function monoTex(m) {
@@ -376,8 +381,9 @@ export function toTex(n) {
       const simple = isSimple(n) && !n.prod;
       const isVarish = (f) => f.t === 'var' || (f.t === 'pow' && f.b.t === 'var');
       let out = '';
+      const allPar = manyNeg(n);
       n.f.forEach((f, i) => {
-        const par = needsParensInMul(f, i === 0);
+        const par = needsParensInMul(f, i === 0) || (allPar && f.t === 'num' && f.v < 0);
         let ft = par ? '\\left(' + toTex(f) + '\\right)' : toTex(f);
         if (n.hl && i === 0) ft = '\\textcolor{' + (typeof n.hl === 'string' ? n.hl : HL_COLOR) + '}{' + ft + '}';
         if (i > 0) {
@@ -459,8 +465,8 @@ export const STEP_TEXT = {
   mono: 'Skrifum margfeldið sem einn lið, t.d. 3·x = 3x.',
   mpow: 'Veldi þýðir endurtekin margföldun: (2x)² = 2x·2x.',
   msign: 'Byrjum á formerkinu. Teljum mínusana: slétt tala af mínusum gefur plús, oddatala gefur mínus.',
-  morder: 'Röðum þáttunum: tölurnar fremst og sömu breytur saman í stafrófsröð. Röð þátta skiptir ekki máli í margföldun.',
-  mnum: 'Margföldum tölurnar saman.',
+  morder: 'Röðum þáttunum: tölurnar fremst (með formerkjunum sínum) og sömu breytur saman í stafrófsröð. Röð þátta skiptir ekki máli í margföldun.',
+  mnum: 'Margföldum tölurnar saman. Mínus sinnum mínus er plús, mínus sinnum plús er mínus.',
   mvar: 'Margföldum sömu breytur saman með því að leggja saman veldisvísana (x·x = x², a²·a = a³).',
   paren: 'Leysum upp sviga. Mínus fyrir framan sviga snýr við formerki allra liða í svigunum (+ verður − og − verður +). Plús fyrir framan sviga breytir engu.',
   color: 'Finnum líka liði og litum þá eins: líkir liðir hafa sömu breytur í sömu veldum.',
@@ -542,33 +548,41 @@ const note = (kinds, text) => {
   if (!kinds.notes.includes(text)) kinds.notes.push(text);
 };
 
-// Brýtur einliðu niður í þætti: {minus, atoms:[{k:'num',v}|{k:'var',n,e}], firstNeg}
-function atomize(n) {
-  let minus = 0;
-  const atoms = [];
+// Brýtur einliðu niður í þætti. Formerki fylgir tölunni sem það á við, t.d. (−3x) -> −3 og x.
+// Formerki sem á enga tölu (t.d. (−x)) telst „laus mínus“.
+function atomize(n, extraNeg = 0) {
+  let loose = 0;
+  const applySign = (list, times) => {
+    if (times % 2 === 0) return;
+    const num = list.find((a) => a.k === 'num');
+    if (num) num.v = -num.v; else loose++;
+  };
   const rec = (n, power) => {
     switch (n.t) {
       case 'num':
-        if (n.v < 0) minus += power;
-        if (n.v === -1) return; // -1 er bara formerki
-        for (let i = 0; i < power; i++) atoms.push({ k: 'num', v: Math.abs(n.v) });
-        return;
-      case 'var': atoms.push({ k: 'var', n: n.n, e: power }); return;
+        if (n.v === -1) { applySign([], power); return []; } // −1 er bara formerki
+        return Array.from({ length: power }, () => ({ k: 'num', v: n.v < 0 && power % 2 === 1 ? n.v : Math.abs(n.v) }));
+      case 'var': return [{ k: 'var', n: n.n, e: power }];
       case 'mono': {
-        if (n.c < 0) minus += power;
-        if (Math.abs(n.c) !== 1 || !sortedVars(n.v).length) for (let i = 0; i < power; i++) atoms.push({ k: 'num', v: Math.abs(n.c) });
-        for (const k of sortedVars(n.v)) atoms.push({ k: 'var', n: k, e: n.v[k] * power });
-        return;
+        const out = [];
+        if (Math.abs(n.c) !== 1 || !sortedVars(n.v).length) for (let i = 0; i < power; i++) out.push({ k: 'num', v: Math.abs(n.c) });
+        for (const k of sortedVars(n.v)) out.push({ k: 'var', n: k, e: n.v[k] * power });
+        if (n.c < 0) applySign(out, power);
+        return out;
       }
-      case 'neg': minus += power; rec(n.n, power); return;
-      case 'add': if (n.ts[0].s < 0) minus += power; rec(n.ts[0].n, power); return;
-      case 'pow': rec(n.b, power * n.e); return;
-      case 'mul': for (const f of n.f) rec(f, power); return;
+      case 'neg': { const out = rec(n.n, power); applySign(out, power); return out; }
+      case 'add': { const out = rec(n.ts[0].n, power); if (n.ts[0].s < 0) applySign(out, power); return out; }
+      case 'pow': return rec(n.b, power * n.e);
+      case 'mul': return n.f.flatMap((f) => rec(f, power));
     }
+    return [];
   };
-  rec(n, 1);
-  return { minus, atoms };
+  const atoms = rec(n, 1);
+  if (extraNeg) applySign(atoms, 1);
+  return { loose, atoms };
 }
+
+const numText = (v) => (v < 0 ? '(−' + -v + ')' : String(v));
 
 function atomsNode(neg, atoms) {
   const nums = atoms.filter((a) => a.k === 'num');
@@ -616,28 +630,31 @@ function monoStep(n, extraNeg, kinds) {
     note(kinds, `${toText(ex.pow)} = ${toText({ t: 'mul', f: Array.from({ length: ex.pow.e }, () => ex.pow.b), prod: true })}`);
     return extraNeg ? { t: 'add', ts: [{ s: -1, n: ex.node }] } : ex.node;
   }
-  const { minus: m0, atoms } = atomize(n);
-  const minus = m0 + extraNeg;
-  const neg = minus % 2 === 1;
-  const leading = extraNeg ? true : absNode(n)[0] < 0;
-  const hasNumMinus = minus > 0 && !(minus === 1 && leading);
-  if (hasNumMinus) {
+  const { loose, atoms } = atomize(n, extraNeg);
+  const negNums = atoms.filter((a) => a.k === 'num' && a.v < 0).length;
+  // Laus mínus (sem á enga tölu): teljum alla mínusana og ákveðum formerkið fyrst
+  if (loose > 0 && !(loose === 1 && negNums === 0 && (extraNeg || absNode(n)[0] < 0))) {
+    const minus = loose + negNums;
     kinds.add('msign');
     note(kinds, minus === 1 ? 'Einn mínus → útkoman verður neikvæð.'
-      : `${minus} mínusar → ${neg ? 'oddatala, útkoman verður neikvæð' : 'mínus sinnum mínus verður plús'}.`);
-    return atomsNode(neg, atoms);
+      : `${minus} mínusar → ${minus % 2 ? 'oddatala, útkoman verður neikvæð' : 'mínus sinnum mínus verður plús'}.`);
+    return atomsNode(minus % 2 === 1, atoms.map((a) => (a.k === 'num' ? { ...a, v: Math.abs(a.v) } : a)));
   }
+  const neg = loose % 2 === 1;
   const nums = atoms.filter((a) => a.k === 'num');
   const vars = atoms.filter((a) => a.k === 'var');
   const ordered = [...nums, ...[...vars].sort((a, b) => (a.n < b.n ? -1 : a.n > b.n ? 1 : 0))];
-  if (ordered.some((a, i) => a !== atoms[i])) {
+  if (ordered.some((a, i) => a !== atoms[i]) || (nums.length >= 2 && !n.atoms)) {
     kinds.add('morder');
     return atomsNode(neg, ordered);
   }
   if (nums.length >= 2) {
     const prod = nums.reduce((a, b) => a * b.v, 1);
     kinds.add('mnum');
-    note(kinds, `${nums.map((a) => a.v).join('·')} = ${prod}`);
+    const m = nums.filter((a) => a.v < 0).length;
+    note(kinds, `${nums.map((a) => numText(a.v)).join('·')} = ${prod}`);
+    if (m === 1) note(kinds, 'Einn mínus → mínus');
+    else if (m > 1) note(kinds, m % 2 ? `${m} mínusar → mínus` : `${m === 2 ? 'Tveir' : m} mínusar → plús`);
     return atomsNode(neg, [{ k: 'num', v: prod }, ...vars]);
   }
   if (nums.length === 1 && nums[0].v === 1 && vars.length) {
