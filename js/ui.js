@@ -182,19 +182,52 @@ function evalArithmetic(src) {
   return v;
 }
 
+// Frumþáttun: 12 -> [[2,2],[3,1]]
+function primeFactors(n) {
+  const out = [];
+  for (let p = 2; p * p <= n; p++) {
+    let e = 0;
+    while (n % p === 0) { n /= p; e++; }
+    if (e) out.push([p, e]);
+  }
+  if (n > 1) out.push([n, 1]);
+  return out;
+}
+
+const SUPS = '⁰¹²³⁴⁵⁶⁷⁸⁹';
+const supNum = (e) => String(e).split('').map((d) => SUPS[d]).join('');
+
 const fmtNum = (v) => String(Math.round(v * 1e10) / 1e10).replace('.', ',').replace('-', '−');
 
 function miniCalc(onInsert) {
   let expr = '';
   let result = null;
+  let resultTex = null; // það sem fer í ritilinn ef það er annað en result
   const shown = el('div', { class: 'mc-expr', 'aria-live': 'polite' });
   const res = el('div', { class: 'mc-result' });
   const update = () => {
     shown.textContent = expr || '0';
-    res.textContent = result === null ? '' : '= ' + result;
+    res.textContent = result === null ? '' : (/[a-zA-Záðéíóúýþæö]/.test(result) ? '' : '= ') + result;
   };
   const press = (k) => {
+    resultTex = null;
     if (k === 'C') { expr = ''; result = null; }
+    else if (k === 'fact') {
+      let v;
+      try { v = evalArithmetic(expr); } catch (e) { result = e.message; update(); return; }
+      if (!Number.isInteger(v)) result = 'Aðeins heilar tölur';
+      else if (Math.abs(v) < 2) result = `${fmtNum(v)} er hvorki frumtala né samsett`;
+      else if (Math.abs(v) > 1e12) result = 'Of stór tala';
+      else {
+        const f = primeFactors(Math.abs(v));
+        const sign = v < 0 ? '−' : '';
+        const long = f.flatMap(([q, e]) => Array(e).fill(q)).join('·');
+        const short = f.map(([q, e]) => q + (e > 1 ? supNum(e) : '')).join('·');
+        result = f.length === 1 && f[0][1] === 1 ? `${fmtNum(v)} er frumtala`
+          : sign + long + (short !== long ? ' = ' + sign + short : '');
+        resultTex = f.length === 1 && f[0][1] === 1 ? String(v) : (v < 0 ? '-' : '') + f.map(([q, e]) => q + (e > 1 ? '^{' + e + '}' : '')).join('\\cdot ');
+      }
+    }
     else if (k === '⌫') { expr = expr.slice(0, -1); }
     else if (k === '=') {
       try { result = fmtNum(evalArithmetic(expr)); } catch (e) { result = e.message; }
@@ -205,9 +238,10 @@ function miniCalc(onInsert) {
     }
     update();
   };
-  const keys = ['C', '(', ')', '÷', '7', '8', '9', '×', '4', '5', '6', '−', '1', '2', '3', '+', '0', ',', '⌫', '='];
+  const keys = ['C', '(', ')', '÷', '7', '8', '9', '×', '4', '5', '6', '−', '1', '2', '3', '+', '0', ',', '⌫', '=', 'fact'];
   const pad = el('div', { class: 'mc-keys' }, keys.map((k) => el('button', {
-    type: 'button', class: 'mc-key' + (/[÷×−+=]/.test(k) ? ' op' : '') + (k === '=' ? ' eq' : ''),
+    type: 'button', class: 'mc-key' + (/^[÷×−+=]$/.test(k) ? ' op' : '') + (k === '=' ? ' eq' : '') + (k === 'fact' ? ' fact' : ''),
+    title: k === 'fact' ? 'Þátta töluna í frumþætti, t.d. 12 = 2·2·3' : null,
     onmousedown: (e) => e.preventDefault(),
     onclick: () => press(k),
   }, k)));
@@ -216,12 +250,13 @@ function miniCalc(onInsert) {
     onmousedown: (e) => e.preventDefault(),
     onclick: () => {
       if (result === null) press('=');
-      if (result !== null && /^[−\d]/.test(result)) onInsert(result.replace('−', '-').replace(',', '.'));
+      if (resultTex) onInsert(resultTex);
+      else if (result !== null && /^[−\d][\d,]*$/.test(result)) onInsert(result.replace('−', '-').replace(',', '.'));
     },
   }, 'Setja útkomu í ritilinn');
   const box = el('div', { class: 'mini-calc', role: 'group', 'aria-label': 'Vasareiknir', tabindex: '0',
     onkeydown: (e) => {
-      const map = { '*': '×', '/': '÷', '-': '−', Enter: '=', Backspace: '⌫', Escape: 'C', '.': ',' };
+      const map = { '*': '×', '/': '÷', '-': '−', Enter: '=', Backspace: '⌫', Escape: 'C', '.': ',', f: 'fact' };
       const k = map[e.key] || e.key;
       if (keys.includes(k)) { e.preventDefault(); press(k); }
     } },

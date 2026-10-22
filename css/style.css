@@ -347,3 +347,4 @@ math-field::part(virtual-keyboard-toggle) { color: var(--muted); }
 .mc-key.op { background: var(--purple); }
 .mc-key.eq { background: var(--orange); color: #2a1200; }
 .mc-insert { font-size: 0.85rem; padding: 8px 10px; }
+.mc-key.fact { grid-column: 1 / -1; background: var(--teal); color: var(--space-1); font-size: 0.95rem; letter-spacing: .04em; }
