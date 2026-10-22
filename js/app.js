@@ -551,8 +551,39 @@ function examView() {
     timer = setInterval(tick, 1000);
 
     let idx = 0, results = null;
-    const items = qs.map((p) => ({ p, ed: createEditor({ placeholder: 'Svar', onEnter: () => go(idx + 1) }) }));
-    const answered = (i) => !!items[i].ed.getValue().trim();
+    // Hvert dæmi hefur eina eða fleiri línur; síðasta útfyllta línan er svarið.
+    const items = qs.map((p) => ({ p, lines: [], linesEl: el('ol', { class: 'work-lines' }) }));
+    const values = (it) => it.lines.map((l) => l.ed.getValue().trim());
+    const finalAnswer = (it) => values(it).filter(Boolean).pop() || '';
+    const answered = (i) => !!finalAnswer(items[i]);
+
+    function addLine(it, after = it.lines.length - 1) {
+      const line = {};
+      line.ed = createEditor({
+        placeholder: 'Lína', compact: true,
+        onEnter: () => {
+          // Enter í neðstu línu bætir við nýrri línu ef eitthvað er skrifað
+          if (it.lines[it.lines.length - 1] === line && line.ed.getValue().trim()) addLine(it).ed.focus();
+          else { const j = it.lines.indexOf(line); if (it.lines[j + 1]) it.lines[j + 1].ed.focus(); }
+        },
+      });
+      line.root = el('li', { class: 'work-line' },
+        el('span', { class: 'eq' }, '='),
+        line.ed.root,
+        el('button', {
+          type: 'button', class: 'line-del', title: 'Eyða línu', 'aria-label': 'Eyða línu',
+          onclick: () => {
+            if (it.lines.length === 1) { line.ed.setValue(''); return; }
+            it.lines.splice(it.lines.indexOf(line), 1);
+            line.root.remove();
+          },
+        }, '×'));
+      it.lines.splice(after + 1, 0, line);
+      const next = it.lines[after + 2];
+      if (next) it.linesEl.insertBefore(line.root, next.root); else it.linesEl.append(line.root);
+      return line;
+    }
+    items.forEach((it) => addLine(it));
 
     const view = el('div', {});
     setup.hidden = true;
@@ -574,12 +605,27 @@ function examView() {
         el('h2', {}, `${idx + 1}.`, el('span', { class: 'chip' }, it.p.chapter)),
         problemHeader(it.p));
       if (!results) {
-        card.append(el('p', { class: 'help' }, 'Svar (fullstytt). Ýttu á Enter til að fara í næsta dæmi.'), it.ed.root);
+        card.append(
+          el('p', { class: 'help' }, 'Reiknaðu í eins mörgum línum og þú vilt. Enter bætir við línu. Síðasta línan er svarið þitt og á að vera fullstytt.'),
+          it.linesEl,
+          el('button', { class: 'btn ghost add-line', onclick: () => addLine(it).ed.focus() }, '+ Bæta við línu'));
       } else {
         const r = results[idx];
-        const ans = it.ed.getValue().trim();
+        const start = parse(it.p.expr);
+        const written = values(it).filter(Boolean);
+        const work = el('ol', { class: 'steps review-lines' });
+        written.forEach((src, j) => {
+          const pr = tryParse(src);
+          const ok = pr.node && polyEqual(expand(pr.node), expand(start));
+          const last = j === written.length - 1;
+          work.append(el('li', { class: 'step ' + (ok ? 'ok' : 'bad-line') + (last ? ' answer' : '') },
+            el('div', { class: 'step-math' }, el('span', { class: 'eq' }, '='), pr.node ? math(toTex(pr.node)) : el('span', {}, src),
+              el('span', { class: 'mark' }, ok ? '✓' : '✗')),
+            !ok ? el('div', { class: 'step-why' }, pr.error || ((d) => (d.startsWith('Þetta er ekki') ? d : 'Ekki jafngilt dæminu. ' + d))(diagnose(start, pr.node))) : null,
+            last ? el('div', { class: 'step-why' }, 'Svarið þitt') : null));
+        });
         card.append(
-          el('div', { class: 'your-answer' }, 'Þitt svar: ', ans ? math(tryParse(ans).node ? toTex(tryParse(ans).node) : ans) : el('i', {}, 'ekkert')),
+          written.length ? work : el('div', { class: 'your-answer' }, 'Þitt svar: ', el('i', {}, 'ekkert')),
           el('p', { class: 'msg ' + (r.ok ? 'good' : 'bad') }, r.text),
           el('h3', {}, 'Lausn skref fyrir skref'),
           stepper(parse(it.p.expr)));
@@ -591,14 +637,14 @@ function examView() {
         actions.append(el('button', { class: 'btn', onclick: () => { results = null; setup.hidden = false; testArea.innerHTML = ''; setup.scrollIntoView(); } }, 'Nýtt próf'));
       }
       view.append(head, pager(items.length, idx, go, cls), card, actions);
-      if (!results) setTimeout(() => it.ed.focus(), 30);
+      if (!results) setTimeout(() => it.lines[it.lines.length - 1].ed.focus(), 30);
     }
 
     function submit() {
       const missing = items.filter((_, i) => !answered(i)).length;
       if (missing && !confirm(`Þú átt eftir að svara ${missing} ${missing === 1 ? 'dæmi' : 'dæmum'}. Viltu skila samt?`)) return;
       clearInterval(timer);
-      results = items.map((it) => gradeAnswer(it.p, it.ed.getValue()));
+      results = items.map((it) => gradeAnswer(it.p, finalAnswer(it)));
       idx = 0;
       render();
       view.scrollIntoView({ behavior: 'smooth' });
