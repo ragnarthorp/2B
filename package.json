@@ -1,0 +1,9 @@
+{
+  "name": "staerdfraedi-2b",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node tests/algebra.test.mjs",
+    "start": "npx http-server -p 8080 ."
+  }
+}
