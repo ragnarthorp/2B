@@ -1,4 +1,4 @@
-// Glósublað fyrir próf úr köflum 1.1 og 2.1. Stærðfræði innan $$...$$ er birt með richHtml.
+// Glósublað fyrir próf úr köflum 1.1, 2.1 og 3.1. Stærðfræði innan $$...$$ er birt með richHtml.
 
 import { el, richHtml } from './ui.js';
 
@@ -27,7 +27,12 @@ const HTML = `
   <p><b>Á prófinu þarftu að geta einfaldað stæður eins og:</b></p>
   <p class="big">$$3x-2y+5-x+4y-7$$ $$-2(-3x)\\cdot x$$ $$4-3(x-2)$$ $$(x-5)^2$$ $$(x+2y-1)(2x-y+3)$$</p>
   <p>„Einfalda eins og hægt er“ þýðir: <b>engir svigar eftir</b>, <b>ekkert ómargfaldað</b> og <b>engir líkir liðir eftir</b>.</p>
+  <p><b>…og þátta stæður eins og:</b></p>
+  <p class="big">$$6x^2+9x$$ $$x^2-9$$ $$x^2+5x+6$$ $$2x^2-18$$ $$x^4-16$$</p>
+  <p>„Þátta eins og hægt er“ þýðir: stæðan er skrifuð sem <b>margfeldi</b> og <b>enginn svigi</b> er eftir sem hægt er að þátta frekar.</p>
 </section>
+
+<h2 class="part-title">Kaflar 1.1 og 2.1 · Einföldun</h2>
 
 <section class="note-card">
   <h2><span class="n">1</span> Orðin sem þú þarft að kunna</h2>
@@ -182,7 +187,125 @@ const HTML = `
     <tr><td>$$(x+1)(x+2)=x^2+2$$</td><td>$$(x+1)(x+2)=x^2+3x+2$$</td></tr>
   </table>
 </section>
+
+<h2 class="part-title">Kafli 3.1 · Þáttun</h2>
+
+<section class="note-card">
+  <h2><span class="n">11</span> Hvað er þáttun?</h2>
+  <p>Að þátta er <b>öfugt við að margfalda upp úr svigum</b>:</p>
+  <p class="big">$$3x(2x+3)\\;\\xrightarrow{\\text{margfalda}}\\;6x^2+9x$$ $$6x^2+9x\\;\\xrightarrow{\\text{þátta}}\\;3x(2x+3)$$</p>
+  <p>Svarið á að vera <b>margfeldi</b>: tala og/eða stafir fremst og svigar þar fyrir aftan. <b>Prófaðu alltaf</b> með því að margfalda svarið út.</p>
+</section>
+
+<section class="note-card">
+  <h2><span class="n">12</span> Liðir eru búnir til úr þáttum</h2>
+  <p>Hvern lið má skrifa sem margfeldi <b>frumþátta</b>. Deildu með 2, 3, 5, 7, … þar til ekkert er eftir. Veldi verða að endurtekinni margföldun.</p>
+  <table class="words">
+    <tr><td>$$12$$</td><td>$$2\\cdot2\\cdot3$$</td></tr>
+    <tr><td>$$18$$</td><td>$$2\\cdot3\\cdot3$$</td></tr>
+    <tr><td>$$60$$</td><td>$$2\\cdot2\\cdot3\\cdot5$$</td></tr>
+    <tr><td>$$12x^2y$$</td><td>$$2\\cdot2\\cdot3\\cdot x\\cdot x\\cdot y$$</td></tr>
+  </table>
+  <p class="tip-line">Vasareiknirinn á vefnum (🧮) hefur <b>fact</b>-hnapp sem þáttar tölur: 60 fact = 2·2·3·5.</p>
+</section>
+
+<section class="note-card">
+  <h2><span class="n">13</span> Sameiginlegur þáttur út fyrir sviga</h2>
+  <p><b>Byrjaðu alltaf á þessu.</b> Sameiginlegi þátturinn er:</p>
+  <ol class="steps-list">
+    <li><b>Talan:</b> stærsta talan sem gengur upp í <b>öllum</b> stuðlunum.</li>
+    <li><b>Stafirnir:</b> hver stafur sem er í <b>öllum</b> liðunum, með <b>lægsta</b> veldinu.</li>
+    <li><b>Í svigann</b> fer hver liður deilt með sameiginlega þættinum.</li>
+  </ol>
+  <p><b>Dæmi:</b> $$18a^3b^2-12a^2b^3$$</p>
+  <p>$$18a^3b^2=${col(C.o, '2')}\\cdot${col(C.o, '3')}\\cdot3\\cdot${col(C.o, 'a')}\\cdot${col(C.o, 'a')}\\cdot a\\cdot${col(C.o, 'b')}\\cdot${col(C.o, 'b')}$$</p>
+  <p>$$12a^2b^3=${col(C.o, '2')}\\cdot2\\cdot${col(C.o, '3')}\\cdot${col(C.o, 'a')}\\cdot${col(C.o, 'a')}\\cdot${col(C.o, 'b')}\\cdot${col(C.o, 'b')}\\cdot b$$</p>
+  <p>Sameiginlegt: $$2\\cdot3\\cdot a\\cdot a\\cdot b\\cdot b=${col(C.o, '6a^2b^2')}$$</p>
+  <p class="big">$$18a^3b^2-12a^2b^3=${col(C.o, '6a^2b^2')}(3a-2b)$$</p>
+  <p class="warn">⚠ Ef heill liður er sameiginlegi þátturinn verður <b>1</b> eftir: $$4a^2b-6ab^2+2ab=2ab(2a-3b+1)$$</p>
+  <p class="warn">⚠ Ef fremsti liðurinn er neikvæður er mínusinn tekinn út og þá snúast öll formerki: $$-2x^2+8x=-2x(x-4)$$</p>
+</section>
+
+<section class="note-card">
+  <h2><span class="n">14</span> Samokareglan</h2>
+  <p class="big">$$a^2-b^2=(a+b)(a-b)$$</p>
+  <p><b>Þekktu hana:</b> nákvæmlega <b>tveir liðir</b>, <b>mínus</b> á milli og <b>báðir eru ferningar</b>.</p>
+  <p class="tip-line">Ferningar: 1, 4, 9, 16, 25, 36, 49, 64, 81, 100, 121, 144 &nbsp;·&nbsp; $$4x^2=(2x)^2$$ &nbsp;·&nbsp; $$x^4=(x^2)^2$$</p>
+  <p>$$x^2-49=(x+7)(x-7)$$</p>
+  <p>$$16a^2-1=(4a)^2-1^2=(4a+1)(4a-1)$$</p>
+  <p>$$4x^2-25y^2=(2x+5y)(2x-5y)$$</p>
+  <p>$$9-a^2=(3+a)(3-a)$$</p>
+  <p class="warn">⚠ $$x^2+9$$ er <b>ekki</b> hægt að þátta, því það er <b>plús</b> á milli ferninganna.</p>
+</section>
+
+<section class="note-card">
+  <h2><span class="n">15</span> Ágiskunarreglan</h2>
+  <p class="big">$$x^2+bx+c=(x+p)(x+q)$$ þar sem $$p\\cdot q=c$$ og $$p+q=b$$</p>
+  <p>Finndu tvær tölur sem <b>margfaldaðar</b> gefa aftasta liðinn og <b>lagðar saman</b> gefa miðstuðulinn.</p>
+  <p><b>Dæmi:</b> $$x^2-8x+15$$. Margfeldið á að vera 15 og summan −8:</p>
+  <table class="count">
+    <tr><th>Tölur</th><th>Margfeldi</th><th>Summa</th></tr>
+    <tr><td>$$1,\\;15$$</td><td>15</td><td>16 ✗</td></tr>
+    <tr><td>$$3,\\;5$$</td><td>15</td><td>8 ✗</td></tr>
+    <tr><td>$$-1,\\;-15$$</td><td>15</td><td>−16 ✗</td></tr>
+    <tr><td>$$-3,\\;-5$$</td><td>15</td><td><b>−8 ✓</b></td></tr>
+  </table>
+  <p class="big">$$x^2-8x+15=(x-3)(x-5)$$</p>
+  <h3>Formerkin segja þér margt</h3>
+  <table class="words">
+    <tr><td>$$c$$ jákvætt, $$b$$ jákvætt</td><td>Báðar tölurnar <b>jákvæðar</b>: $$x^2+5x+6=(x+2)(x+3)$$</td></tr>
+    <tr><td>$$c$$ jákvætt, $$b$$ neikvætt</td><td>Báðar tölurnar <b>neikvæðar</b>: $$x^2-8x+15=(x-3)(x-5)$$</td></tr>
+    <tr><td>$$c$$ neikvætt</td><td><b>Ein jákvæð og ein neikvæð.</b> Sú stærri hefur formerki $$b$$: $$x^2+3x-10=(x+5)(x-2)$$</td></tr>
+  </table>
+  <p><b>Ferningur:</b> ef tölurnar eru eins verður sviginn í öðru veldi: $$x^2-6x+9=(x-3)^2$$, &nbsp; $$4x^2+12x+9=(2x+3)^2$$</p>
+  <p><b>Stuðull fyrir framan x²:</b> prófaðu þig áfram og margfaldaðu út til að athuga miðliðinn:</p>
+  <p>$$3x^2-5x-2=(3x+1)(x-2)$$ því $$3x\\cdot(-2)+1\\cdot x=-6x+x=-5x$$ ✓</p>
+</section>
+
+<section class="note-card recipe">
+  <h2><span class="n">16</span> Hvaða aðferð? Fleiri en ein aðferð</h2>
+  <div class="flow">
+    <div class="flow-step"><b>1.</b> Er <b>sameiginlegur þáttur</b>? → Taktu hann út fyrir sviga.</div>
+    <div class="flow-arrow">↓</div>
+    <div class="flow-step"><b>2.</b> Teldu liðina í sviganum:
+      <div class="flow-split">
+        <div><b>2 liðir</b> með mínus og ferningar → <b>samokaregla</b></div>
+        <div><b>3 liðir</b> → <b>ágiskunarregla</b></div>
+      </div>
+    </div>
+    <div class="flow-arrow">↓</div>
+    <div class="flow-step"><b>3.</b> Athugaðu <b>hvern nýjan sviga</b>. Er hægt að þátta hann enn frekar? Byrjaðu þá aftur á skrefi 2.</div>
+    <div class="flow-arrow">↓</div>
+    <div class="flow-step"><b>4.</b> <b>Prófun:</b> margfaldaðu út.</div>
+  </div>
+  <p>$$3x^2-12=3(x^2-4)=3(x+2)(x-2)$$ <small>sameiginlegur þáttur + samoka</small></p>
+  <p>$$2x^3+4x^2-30x=2x(x^2+2x-15)=2x(x+5)(x-3)$$ <small>sameiginlegur þáttur + ágiskun</small></p>
+  <p>$$x^2y-y^3=y(x^2-y^2)=y(x+y)(x-y)$$ <small>sameiginlegur þáttur + samoka</small></p>
+  <p>$$x^4-16=(x^2+4)(x^2-4)=(x^2+4)(x+2)(x-2)$$ <small>samoka tvisvar</small></p>
+</section>
+
+<section class="note-card">
+  <h2><span class="n">!</span> Algengar villur í þáttun</h2>
+  <table class="errors">
+    <tr><th>Rangt</th><th>Rétt</th></tr>
+    <tr><td>$$6x^2+9x=3(2x^2+3x)$$</td><td>$$6x^2+9x=3x(2x+3)$$ <small>(x var líka sameiginlegt)</small></td></tr>
+    <tr><td>$$4a^2b-6ab^2+2ab=2ab(2a-3b)$$</td><td>$$4a^2b-6ab^2+2ab=2ab(2a-3b+1)$$</td></tr>
+    <tr><td>$$x^2-9=(x-3)^2$$</td><td>$$x^2-9=(x+3)(x-3)$$</td></tr>
+    <tr><td>$$x^2+9=(x+3)(x-3)$$</td><td>$$x^2+9$$ er ekki hægt að þátta</td></tr>
+    <tr><td>$$x^2-x-12=(x-3)(x+4)$$</td><td>$$x^2-x-12=(x+3)(x-4)$$</td></tr>
+    <tr><td>$$2x^2-18=2(x^2-9)$$</td><td>$$2x^2-18=2(x+3)(x-3)$$ <small>(ekki hætta of snemma)</small></td></tr>
+  </table>
+</section>
 `;
+
+const SELF_TEST_FACTOR = [
+  ['12a^2b-8ab^2', '4ab(3a-2b)'],
+  ['x^2+x-20', '(x+5)(x-4)'],
+  ['2x^2-50', '2(x+5)(x-5)'],
+  ['x^3-9x', 'x(x+3)(x-3)'],
+  ['4x^2+12x+9', '(2x+3)^2'],
+  ['3x^2-5x-2', '(3x+1)(x-2)'],
+];
 
 const SELF_TEST = [
   ['x^2y-3xy^2+2yx^2+xy^2', '3x^2y-2xy^2'],
@@ -192,18 +315,23 @@ const SELF_TEST = [
   ['(a+b-2)(a-b+2)', 'a^2-b^2+4b-4'],
 ];
 
+const selfTest = (list) => el('ol', { class: 'self-test' }, list.map(([q, a]) => el('li', {},
+  el('span', { html: richHtml(`$$${q.replace(/\^(\d)/g, '^{$1}')}$$`) }),
+  el('details', {}, el('summary', {}, 'Svar'), el('span', { html: richHtml(`$$=${a.replace(/\^(\d)/g, '^{$1}')}$$`) })))));
+
 export function notesView() {
   const test = el('section', { class: 'note-card' },
     el('h2', {}, el('span', { class: 'n' }, '?'), ' Prófaðu þig'),
     el('p', {}, 'Reiknaðu sjálf/ur og smelltu svo til að sjá svarið. Í æfingunni á vefnum geturðu reiknað þau í skrefum.'),
-    el('ol', { class: 'self-test' }, SELF_TEST.map(([q, a]) => el('li', {},
-      el('span', { html: richHtml(`$$${q.replace(/\^(\d)/g, '^{$1}')}$$`) }),
-      el('details', {}, el('summary', {}, 'Svar'), el('span', { html: richHtml(`$$=${a.replace(/\^(\d)/g, '^{$1}')}$$`) }))))));
+    el('h3', {}, 'Einfaldaðu'),
+    selfTest(SELF_TEST),
+    el('h3', {}, 'Þáttaðu'),
+    selfTest(SELF_TEST_FACTOR));
   return el('div', { class: 'page notes' },
     el('div', { class: 'row notes-head' },
       el('h1', {}, 'Glósur fyrir prófið'),
       el('button', { class: 'btn ghost no-print', onclick: () => window.print() }, '🖨 Prenta')),
-    el('p', { class: 'lead' }, 'Allt sem þú þarft að kunna úr 1.1 Samlagning liðastærða og 2.1 Margföldun liðastærða.'),
+    el('p', { class: 'lead' }, 'Allt sem þú þarft að kunna úr 1.1 Samlagning liðastærða, 2.1 Margföldun liðastærða og 3.1 Þáttun.'),
     el('div', { html: richHtml(HTML) }),
     test);
 }
