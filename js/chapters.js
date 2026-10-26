@@ -57,6 +57,45 @@ export const CHAPTERS = [
       { expr: '-(a+3)(b-2)-(-a-1)^3', note: 'Veldið 3 þýðir að svigann á að margfalda þrisvar sinnum með sjálfum sér.' },
     ],
   },
+  {
+    id: '3.1',
+    title: 'Þáttun',
+    mode: 'factor',
+    intro: `
+      <p><b>Að þátta</b> er að skrifa stæðu sem <b>margfeldi</b>. Það er öfugt við að margfalda upp úr svigum: $$3x(2x+3)=6x^2+9x$$ er margföldun, en $$6x^2+9x=3x(2x+3)$$ er þáttun.</p>
+      <ol class="method-list">
+        <li><b>Liðir eru búnir til úr þáttum.</b> Hvern lið má skrifa sem margfeldi frumþátta: $$12x^2y=2\\cdot2\\cdot3\\cdot x\\cdot x\\cdot y$$.</li>
+        <li><b>Sameiginlegur þáttur út fyrir sviga.</b> Finndu þættina sem <b>allir</b> liðirnir eiga sameiginlega og taktu þá út fyrir sviga: $$6x^2+9x=3x(2x+3)$$. Byrjaðu <b>alltaf</b> á þessu.</li>
+        <li><b>Samokareglan.</b> Tveir ferningar með mínus á milli: $$a^2-b^2=(a+b)(a-b)$$, t.d. $$x^2-9=(x+3)(x-3)$$.</li>
+        <li><b>Ágiskunarreglan.</b> $$x^2+bx+c=(x+p)(x+q)$$ þar sem $$p\\cdot q=c$$ og $$p+q=b$$, t.d. $$x^2+5x+6=(x+2)(x+3)$$ því $$2\\cdot3=6$$ og $$2+3=5$$.</li>
+        <li><b>Fleiri en ein aðferð.</b> Eftir hvert skref athugarðu hvort hægt sé að þátta svigana enn frekar: $$2x^2-18=2(x^2-9)=2(x+3)(x-3)$$.</li>
+      </ol>
+      <p><b>Prófun:</b> Margfaldaðu svarið út. Þá áttu að fá upphaflegu stæðuna.</p>`,
+    examples: [
+      { section: 'Liðir eru búnir til úr þáttum', prompt: 'Skrifaðu liðinn sem margfeldi frumþátta:', expr: '12x^2y', noPractice: true,
+        note: 'Tölurnar eru brotnar í frumtölur og veldin skrifuð sem endurtekin margföldun.' },
+      { section: 'Liðir eru búnir til úr þáttum', prompt: 'Finndu sameiginlegan þátt liðanna og þáttaðu:', expr: '12x^2y+18xy^2',
+        note: 'Sameiginlegi þátturinn er margfeldi þáttanna sem eru litaðir í öllum liðunum.' },
+      { section: 'Sameiginlegur þáttur', expr: '6x^2+9x', note: 'Prófun: 3x·2x + 3x·3 = 6x² + 9x.' },
+      { section: 'Sameiginlegur þáttur', expr: '4a^2b-6ab^2+2ab',
+        note: 'Þegar heill liður er sameiginlegi þátturinn verður 1 eftir í sviganum: 2ab = 2ab·1.' },
+      { section: 'Sameiginlegur þáttur', expr: '-2x^2+8x', note: 'Ef fremsti liðurinn er neikvæður er venjan að taka mínusinn út líka.' },
+      { section: 'Samokaregla', expr: 'x^2-9' },
+      { section: 'Samokaregla', expr: '4x^2-25y^2', note: 'Stuðullinn fer líka í ferninginn: 4x² = (2x)².' },
+      { section: 'Samokaregla', expr: '9-a^2' },
+      { section: 'Ágiskunarregla', expr: 'x^2+5x+6' },
+      { section: 'Ágiskunarregla', expr: 'x^2-x-12', note: 'Aftasti liðurinn er neikvæður, svo önnur talan er jákvæð og hin neikvæð.' },
+      { section: 'Ágiskunarregla', expr: 'x^2-6x+9', note: 'Sami svigi tvisvar: þetta er ferningsreglan öfug, (x − 3)² = x² − 6x + 9.' },
+      { section: 'Ágiskunarregla', expr: 'x^2+2xy-15y^2', note: 'Virkar eins með tveimur breytum: y fylgir tölunum.' },
+      { section: 'Ágiskunarregla', expr: '2x^2+7x+3', note: 'Þegar stuðull er fyrir framan x² þarf að prófa sig áfram. Margfaldaðu út til að athuga miðliðinn.' },
+      { section: 'Fleiri en ein aðferð', expr: '2x^2-18', note: 'Fyrst sameiginlegur þáttur, svo samokaregla.' },
+      { section: 'Fleiri en ein aðferð', expr: '3x^2+15x+18', note: 'Fyrst sameiginlegur þáttur, svo ágiskunarregla.' },
+      { section: 'Fleiri en ein aðferð', expr: 'x^3-x' },
+      { section: 'Fleiri en ein aðferð', expr: '5x^3-20x^2+20x' },
+      { section: 'Fleiri en ein aðferð', expr: 'x^4-16', note: 'Samokareglan tvisvar. x² + 4 er ekki hægt að þátta því þar er plús á milli ferninganna.' },
+      { section: 'Fleiri en ein aðferð', expr: 'a^4-13a^2+36', note: 'Ágiskun með a² í stað x og síðan samokaregla á báða svigana.' },
+    ],
+  },
 ];
 
 export const chapterById = (id) => CHAPTERS.find((c) => c.id === id);

@@ -1,3 +1,6 @@
+import { parse, expand, polyToNode, toText } from './algebra.js';
+import { isFullyFactored } from './factor.js';
+
 // Býr til æfingadæmi af handahófi. Hvert dæmi: {expr, prompt, figure?}
 // expr er venjulegur texti sem algebruvélin les (parse).
 
@@ -228,7 +231,147 @@ const ch21 = [
   },
 ];
 
-export const GENERATORS = { '1.1': ch11, '2.1': ch21 };
+// ---------- 3.1 Þáttun ----------
+// Dæmin eru búin til úr þáttaðri mynd og margfölduð út.
+
+const expanded = (src) => toText(polyToNode(expand(parse(src))));
+const sgn = (n) => (n < 0 ? ` - ${-n}` : ` + ${n}`);
+const coef = (n) => (n === 1 ? '' : n === -1 ? '-' : String(n));
+const gcdInt = (a, b) => { a = Math.abs(a); b = Math.abs(b); while (b) [a, b] = [b, a % b]; return a; };
+
+const ch31 = [
+  // k(ax + b)
+  {
+    level: 1,
+    make() {
+      const v = pick(['x', 'a']);
+      let a, b;
+      do { a = ri(1, 5); b = nz(-9, 9); } while (gcdInt(a, b) !== 1);
+      return { expr: expanded(`${ri(2, 6)}(${coef(a)}${v}${sgn(b)})`) };
+    },
+  },
+  // kx(ax + b), t.d. 4x^2 - 8x
+  {
+    level: 1,
+    make() {
+      let a, b;
+      do { a = ri(1, 5); b = nz(-9, 9); } while (gcdInt(a, b) !== 1);
+      return { expr: expanded(`${ri(2, 5)}x(${coef(a)}x${sgn(b)})`) };
+    },
+  },
+  // kab(ma + nb), t.d. 6a^2b + 9ab^2
+  {
+    level: 1,
+    make() {
+      let m, n;
+      do { m = ri(1, 4); n = nz(-5, 5); } while (gcdInt(m, n) !== 1);
+      return { expr: expanded(`${ri(2, 5)}ab(${coef(m)}a${n < 0 ? ' - ' : ' + '}${Math.abs(n) === 1 ? '' : Math.abs(n)}b)`) };
+    },
+  },
+  // x^2 - m^2
+  {
+    level: 1,
+    make() {
+      const v = pick(['x', 'a', 'y']), m = ri(1, 10);
+      return { expr: Math.random() < 0.2 ? `${m * m} - ${v}^2` : `${v}^2 - ${m * m}` };
+    },
+  },
+  // (px)^2 - q^2 og (px)^2 - (qy)^2
+  {
+    level: 2,
+    make() {
+      const p = ri(2, 5);
+      let q;
+      do { q = ri(1, 9); } while (gcdInt(p, q) !== 1);
+      if (Math.random() < 0.4) return { expr: `${p * p}x^2 - ${q * q}y^2` };
+      return { expr: `${p * p}x^2 - ${q * q}` };
+    },
+  },
+  // (x + p)(x + q)
+  {
+    level: 2,
+    make() {
+      let p, q;
+      do { p = nz(-9, 9); q = nz(-9, 9); } while (p === -q);
+      return { expr: expanded(`(x${sgn(p)})(x${sgn(q)})`) };
+    },
+  },
+  // (x + p)^2
+  {
+    level: 2,
+    make() {
+      return { expr: expanded(`(${pick(['x', 'a'])}${sgn(nz(-9, 9))})^2`) };
+    },
+  },
+  // (x + py)(x + qy)
+  {
+    level: 2,
+    make() {
+      let p, q;
+      do { p = nz(-6, 6); q = nz(-6, 6); } while (p === -q);
+      return { expr: expanded(`(x${sgn(p)}y)(x${sgn(q)}y)`.replace(/([+-]) 1y/g, '$1 y')) };
+    },
+  },
+  // Þrír liðir með sameiginlegum þætti, sviginn óþáttanlegur: kx(x^2 + bx + c)
+  {
+    level: 2,
+    make() {
+      let b, c, inner;
+      do { b = nz(-6, 6); c = nz(-9, 9); inner = `x^2${sgn(b)}x${sgn(c)}`; } while (!isFullyFactored(parse(inner)));
+      return { expr: expanded(`${ri(2, 5)}x(${inner})`) };
+    },
+  },
+  // k(x^2 - m^2)
+  {
+    level: 3,
+    make() {
+      const m = ri(1, 7);
+      return { expr: expanded(`${ri(2, 5)}(x + ${m})(x - ${m})`) };
+    },
+  },
+  // k(x + p)(x + q)
+  {
+    level: 3,
+    make() {
+      let p, q;
+      do { p = nz(-6, 6); q = nz(-6, 6); } while (p === -q);
+      return { expr: expanded(`${ri(2, 5)}(x${sgn(p)})(x${sgn(q)})`) };
+    },
+  },
+  // x(x + m)(x - m) og kx(x + p)^2
+  {
+    level: 3,
+    make() {
+      if (Math.random() < 0.5) { const m = ri(1, 6); return { expr: expanded(`${coef(ri(1, 3))}x(x + ${m})(x - ${m})`) }; }
+      return { expr: expanded(`${ri(2, 5)}x(x${sgn(nz(-5, 5))})^2`) };
+    },
+  },
+  // x^4 - m^4 og (x^2 - p^2)(x^2 - q^2)
+  {
+    level: 3,
+    make() {
+      if (Math.random() < 0.4) { const m = ri(1, 3); return { expr: `x^4 - ${m ** 4}` }; }
+      const p = ri(1, 4);
+      let q;
+      do { q = ri(1, 4); } while (q === p);
+      return { expr: expanded(`(x^2 - ${p * p})(x^2 - ${q * q})`) };
+    },
+  },
+  // Stuðull fyrir framan x^2: (2x + p)(x + q)
+  {
+    level: 3,
+    make() {
+      const a = pick([2, 3]);
+      let p;
+      do { p = nz(-7, 7); } while (gcdInt(a, p) !== 1);
+      return { expr: expanded(`(${a}x${sgn(p)})(x${sgn(nz(-6, 6))})`) };
+    },
+  },
+];
+
+const DEFAULT_PROMPT = { '3.1': 'Þáttaðu eins og hægt er:' };
+
+export const GENERATORS = { '1.1': ch11, '2.1': ch21, '3.1': ch31 };
 
 // level: 1, 2, 3 eða 0 (blandað)
 export function generate(chapterId, level = 0) {
@@ -236,5 +379,5 @@ export function generate(chapterId, level = 0) {
   const pool = level ? all.filter((g) => g.level === level) : all;
   const g = pick(pool.length ? pool : all);
   const d = g.make();
-  return { prompt: d.prompt || SIMPLIFY, expr: d.expr, figure: d.figure, level: g.level, chapter: chapterId };
+  return { prompt: d.prompt || DEFAULT_PROMPT[chapterId] || SIMPLIFY, expr: d.expr, figure: d.figure, level: g.level, chapter: chapterId };
 }

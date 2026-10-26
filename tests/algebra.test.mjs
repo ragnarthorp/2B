@@ -2,6 +2,7 @@
 import assert from 'node:assert/strict';
 import { parse, solveSteps, expand, polyEqual, polyToNode, isFinalForm, toText, diagnose } from '../js/algebra.js';
 import { generate, GENERATORS } from '../js/generators.js';
+import { factorSteps, isFullyFactored } from '../js/factor.js';
 
 const final = (src) => { const n = parse(src); const s = solveSteps(n); return s.length ? s[s.length - 1].node : n; };
 const simp = (src) => toText(final(src));
@@ -45,15 +46,42 @@ assert.ok(!isFinalForm(parse('x(x-10)+25')));
 assert.ok(!isFinalForm(parse('x·x')));
 assert.ok(diagnose(parse('x^2-10x+25'), parse('x^2+10x+25')).includes('formerk'));
 
+// Þáttun
+const fact = (src) => { const st = factorSteps(parse(src)); return toText(st.length ? st[st.length - 1].node : parse(src)); };
+const fcases = {
+  '6x^2+9x': '3x(2x+3)',
+  '-2x^2+8x': '-2x(x-4)',
+  'x^2-9': '(x+3)(x-3)',
+  '9-a^2': '(3+a)(3-a)',
+  'x^2+5x+6': '(x+2)(x+3)',
+  'x^2-6x+9': '(x-3)^2',
+  '2x^2+7x+3': '(x+3)(2x+1)',
+  '2x^2-18': '2(x+3)(x-3)',
+  'x^4-16': '(x^2+4)(x+2)(x-2)',
+  '5x^3-20x^2+20x': '5x(x-2)^2',
+  '-x^2+5x-6': '-(x-2)(x-3)',
+};
+for (const [q, a] of Object.entries(fcases)) assert.equal(fact(q), a, q);
+assert.equal(factorSteps(parse('x^2+4')).length, 0);
+assert.ok(isFullyFactored(parse('(x+3)(x-3)')));
+assert.ok(isFullyFactored(parse('2(x-3)(x+3)')));
+assert.ok(!isFullyFactored(parse('x^2-9')));
+assert.ok(!isFullyFactored(parse('2(x^2-9)')));
+assert.ok(!isFullyFactored(parse('x(6x+9)')));
+assert.ok(!isFullyFactored(parse('x(x+1)+2(x+1)')));
+assert.ok(isFullyFactored(parse('x^2+4')));
+
 // Handahófsdæmi: lausnin verður alltaf að vera jafngild og fullstytt
 let count = 0;
 for (const id of Object.keys(GENERATORS)) for (let lvl = 1; lvl <= 3; lvl++) for (let i = 0; i < 300; i++) {
   const d = generate(id, lvl);
   const n = parse(d.expr);
-  const steps = solveSteps(n);
+  const factor = id === '3.1';
+  const steps = factor ? factorSteps(n) : solveSteps(n);
   const last = steps.length ? steps[steps.length - 1].node : n;
   assert.ok(polyEqual(expand(n), expand(last)), d.expr);
-  assert.ok(isFinalForm(last), d.expr + ' -> ' + toText(last));
+  if (factor) assert.ok(steps.length && isFullyFactored(last), d.expr + ' -> ' + toText(last));
+  else assert.ok(isFinalForm(last), d.expr + ' -> ' + toText(last));
   for (const s of steps) assert.ok(polyEqual(expand(n), expand(parse(toText(s.node)))), 'skref ' + toText(s.node));
   count++;
 }

@@ -308,6 +308,7 @@ const ICONS = {
   plus: { base: '#2ee6c5', shade: '#18b39c', light: '#b8fff2', sym: '+', ring: '#ffd43b' },
   times: { base: '#ff5c8a', shade: '#d93a6a', light: '#ffc2d4', sym: '×', ring: '#2ee6c5' },
   check: { base: '#ffd43b', shade: '#e0a800', light: '#fff3bf', sym: '✓', ring: '#ff8a3d' },
+  factor: { base: '#ff8a3d', shade: '#e2562a', light: '#ffd08a', sym: '()', ring: '#2ee6c5' },
   notes: { base: '#4dabf7', shade: '#1c7ed6', light: '#d0ebff', sym: '✎', ring: '#ffd43b' },
   equals: { base: '#9775fa', shade: '#6f4fd8', light: '#d9ccff', sym: '=', ring: '#4dabf7' },
 };

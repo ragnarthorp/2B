@@ -1,7 +1,8 @@
-import { parse, solveSteps, nextStep, expand, polyEqual, isFinalForm, diagnose, toTex, STEP_TEXT, ParseError, topTerms, LIKE_COLORS } from './algebra.js';
+import { parse, solveSteps, expand, polyEqual, isFinalForm, diagnose, toTex, STEP_TEXT, ParseError, topTerms, LIKE_COLORS } from './algebra.js';
 import { generate } from './generators.js';
 import { CHAPTERS, chapterById } from './chapters.js';
 import { notesView } from './notes.js';
+import { factorSteps, isFullyFactored } from './factor.js';
 import { el, math, richHtml, createEditor, rectFigure, heroArt, planetIcon, distDiagram, texHtml } from './ui.js';
 
 const app = document.getElementById('app');
@@ -21,6 +22,23 @@ function tryParse(src) {
 }
 
 // „Skrifum 3·x sem 3x“ er sleppt þegar annað gerist í sama skrefi
+// Hvað á að gera við stæðuna: einfalda (kaflar 1 og 2) eða þátta (kafli 3)
+const MODES = {
+  simplify: {
+    steps: (n) => solveSteps(n), done: isFinalForm, prompt: 'Einfaldaðu eins og hægt er:', verb: 'Einfalda',
+    none: 'Ekki er hægt að einfalda þessa stæðu frekar.', doneWord: 'fullstytt',
+    notDone: 'Jafngilt, en ekki fullstytt. Kláraðu að einfalda.',
+    startDone: 'Er hægt að einfalda þetta? Ef ekki, skrifaðu stæðuna óbreytta.',
+  },
+  factor: {
+    steps: (n) => factorSteps(n), done: isFullyFactored, prompt: 'Þáttaðu eins og hægt er:', verb: 'Þátta',
+    none: 'Ekki er hægt að þátta þessa stæðu.', doneWord: 'fullþáttað',
+    notDone: 'Jafngilt, en ekki fullþáttað. Athugaðu hvort hægt sé að þátta einhvern svigann frekar.',
+    startDone: 'Er hægt að þátta þetta? Ef ekki, skrifaðu stæðuna óbreytta.',
+  },
+};
+const modeOf = (chapterId) => MODES[(chapterById(chapterId) || {}).mode || 'simplify'];
+
 const explain = (kinds) => (kinds.length > 1 ? kinds.filter((k) => k !== 'mono') : kinds).map((k) => STEP_TEXT[k]).filter(Boolean);
 
 // Örvamyndir sem sýna hvað margfaldast saman í skrefinu
@@ -37,12 +55,12 @@ function whyView(s) {
 }
 
 // Lausn skref fyrir skref
-function stepsView(node, { showStart = true } = {}) {
-  const steps = solveSteps(node);
+function stepsView(node, { showStart = true, mode = MODES.simplify } = {}) {
+  const steps = mode.steps(node);
   const list = el('ol', { class: 'steps' });
   if (showStart) list.append(el('li', { class: 'step start' }, el('div', { class: 'step-math' }, math(toTex(node)))));
   if (!steps.length) {
-    list.append(el('li', { class: 'step note' }, 'Ekki er hægt að einfalda þessa stæðu frekar.'));
+    list.append(el('li', { class: 'step note' }, mode.none));
   }
   steps.forEach((s, i) => {
     list.append(el('li', { class: 'step' + (i === steps.length - 1 ? ' final' : '') },
@@ -54,11 +72,11 @@ function stepsView(node, { showStart = true } = {}) {
 }
 
 // Lausn sem birtist eitt skref í einu
-function stepper(node) {
-  const steps = solveSteps(node);
+function stepper(node, mode = MODES.simplify) {
+  const steps = mode.steps(node);
   const list = el('ol', { class: 'steps' });
   if (!steps.length) {
-    list.append(el('li', { class: 'step note' }, 'Ekki er hægt að einfalda þessa stæðu frekar.'));
+    list.append(el('li', { class: 'step note' }, mode.none));
     return el('div', { class: 'stepper' }, list);
   }
   let shown = 0;
@@ -108,7 +126,7 @@ function problemHeader(p) {
 
 // ---------- Forsíða ----------
 
-const CHAPTER_ICONS = { '1.1': 'plus', '2.1': 'times' };
+const CHAPTER_ICONS = { '1.1': 'plus', '2.1': 'times', '3.1': 'factor' };
 
 function homeView() {
   return el('div', { class: 'page' },
@@ -174,11 +192,11 @@ function examplesView(c) {
     area.append(
       pager(list.length, idx, show, (i) => (list[i].generated ? 'gen' : '')),
       el('section', { class: 'example' },
-        el('h2', {}, ex.label),
-        problemHeader({ prompt: ex.prompt || 'Einfaldaðu eins og hægt er:', expr: ex.expr, figure: ex.figure }),
-        stepper(parse(ex.expr)),
+        el('h2', {}, ex.label, ex.section ? el('span', { class: 'chip section-chip' }, ex.section) : null),
+        problemHeader({ prompt: ex.prompt || modeOf(c.id).prompt, expr: ex.expr, figure: ex.figure }),
+        stepper(parse(ex.expr), modeOf(c.id)),
         ex.note ? el('p', { class: 'tip' }, el('b', {}, 'Athugið: '), ex.note) : null,
-        el('a', { class: 'btn ghost', href: `#/kafli/${c.id}/aefing/${encodeURIComponent(ex.expr)}` }, 'Reikna þetta sjálf/ur í skrefum →')));
+        ex.noPractice ? null : el('a', { class: 'btn ghost', href: `#/kafli/${c.id}/aefing/${encodeURIComponent(ex.expr)}` }, 'Reikna þetta sjálf/ur í skrefum →')));
   }
 
   const more = () => {
@@ -209,26 +227,34 @@ function examplesView(c) {
 
 function calculatorView(c) {
   const out = el('div', { class: 'calc-out' });
-  const run = () => {
+  const run = (mode) => {
     out.innerHTML = '';
     const src = ed.getValue();
     if (!src.trim()) return;
     const r = tryParse(src);
     if (r.error) { out.append(el('p', { class: 'msg bad' }, r.error)); return; }
-    out.append(stepsView(r.node));
+    out.append(stepsView(r.node, { mode }));
   };
-  const ed = createEditor({ placeholder: 't.d. 2x(x+3)-(x-1)^2', onEnter: run });
+  // Í kafla er ein aðgerð; á almennu reiknivélinni má velja einföldun eða þáttun
+  const own = c ? modeOf(c.id) : null;
+  const ed = createEditor({ placeholder: own === MODES.factor ? 't.d. 3x^2-12' : 't.d. 2x(x+3)-(x-1)^2', onEnter: () => run(own || MODES.simplify) });
   const randomProblem = () => {
     const p = generate(c ? c.id : CHAPTERS[Math.floor(Math.random() * CHAPTERS.length)].id, 0);
     ed.setValue(toTex(parse(p.expr)));
     out.innerHTML = '';
     ed.focus();
   };
+  const buttons = own
+    ? [el('button', { class: 'btn', onclick: () => run(own) }, own === MODES.factor ? 'Þátta' : 'Reikna')]
+    : [el('button', { class: 'btn', onclick: () => run(MODES.simplify) }, 'Einfalda'),
+      el('button', { class: 'btn', onclick: () => run(MODES.factor) }, 'Þátta')];
   return el('section', { class: 'panel' },
-    el('p', {}, c ? 'Skrifaðu inn þitt eigið dæmi. Reiknivélin einfaldar það og sýnir hvert skref.' : 'Skrifaðu inn dæmi með liðastærðum. Reiknivélin einfaldar það og sýnir hvert skref.'),
+    el('p', {}, own === MODES.factor
+      ? 'Skrifaðu inn þitt eigið dæmi. Reiknivélin þáttar það og sýnir hvert skref.'
+      : c ? 'Skrifaðu inn þitt eigið dæmi. Reiknivélin einfaldar það og sýnir hvert skref.'
+        : 'Skrifaðu inn dæmi með liðastærðum. Veldu hvort reiknivélin á að einfalda eða þátta. Hún sýnir hvert skref.'),
     ed.root,
-    el('div', { class: 'row' },
-      el('button', { class: 'btn', onclick: run }, 'Reikna'),
+    el('div', { class: 'row' }, ...buttons,
       el('button', { class: 'btn ghost', onclick: randomProblem }, 'Fá dæmi af handahófi')),
     out);
 }
@@ -340,6 +366,7 @@ function colorTool(node, onArrange, keyColors = {}) {
 
 // Æfing í skrefum
 function practiceView(c, presetExpr) {
+  const mode = modeOf(c.id);
   let level = 0;
   let problem = null;
   let lines = [];    // [{node, tex, shown}]
@@ -365,7 +392,7 @@ function practiceView(c, presetExpr) {
     const r = tryParse(own.getValue());
     if (r.error) { ownMsg.className = 'msg bad'; ownMsg.textContent = r.error; return; }
     ownMsg.textContent = '';
-    newProblem({ prompt: 'Einfaldaðu eins og hægt er:', expr: own.getValue(), node: r.node });
+    newProblem({ prompt: mode.prompt, expr: own.getValue(), node: r.node });
   };
 
   const controls = el('div', { class: 'panel controls' },
@@ -384,8 +411,18 @@ function practiceView(c, presetExpr) {
     if (!problem) return;
     const start = problem.node || parse(problem.expr);
     const current = () => (lines.length ? lines[lines.length - 1].node : start);
-    const done = () => lines.length && isFinalForm(current()) && polyEqual(expand(current()), expand(start));
-    const startFinal = isFinalForm(start);
+    const done = () => lines.length && mode.done(current()) && polyEqual(expand(current()), expand(start));
+    const startFinal = mode.done(start);
+
+    // Næsta skref: fylgjum áætlun vélarinnar á meðan nemandinn notar „Sýna næsta skref“,
+    // en reiknum nýja áætlun út frá línu sem nemandinn skrifaði sjálfur.
+    const upcoming = () => {
+      const last = lines[lines.length - 1];
+      if (last && last.plan && last.plan[last.idx + 1]) return { step: last.plan[last.idx + 1], plan: last.plan, idx: last.idx + 1 };
+      if (last && last.plan) return null;
+      const plan = mode.steps(current());
+      return plan.length ? { step: plan[0], plan, idx: 0 } : null;
+    };
 
     const work = el('ol', { class: 'steps work' });
     const msg = el('p', { class: 'msg', 'aria-live': 'polite' });
@@ -403,7 +440,7 @@ function practiceView(c, presetExpr) {
       const terms = topTerms(node);
       const keys = terms.map((t) => t.key).filter((k) => k !== null);
       const hasLike = new Set(keys).size < keys.length;
-      colorBox.hidden = terms.length < 2 || isFinalForm(node) && !hasLike;
+      colorBox.hidden = mode === MODES.factor || terms.length < 2 || (isFinalForm(node) && !hasLike);
       colorBox.open = hasLike;
       colorBox.innerHTML = '';
       colorBox.append(el('summary', {}, '🎨 Litaðu líka liði'),
@@ -426,7 +463,7 @@ function practiceView(c, presetExpr) {
       if (!usedHelp) solved++;
       updateStats();
       msg.className = 'msg good';
-      msg.textContent = usedHelp ? 'Komið! Reyndu næst að klára án hjálpar.' : 'Vel gert! Þetta er fullstytt og rétt.';
+      msg.textContent = usedHelp ? 'Komið! Reyndu næst að klára án hjálpar.' : `Vel gert! Þetta er ${mode.doneWord} og rétt.`;
       inputBox.hidden = true;
       colorBox.hidden = true;
       after.hidden = false;
@@ -445,37 +482,39 @@ function practiceView(c, presetExpr) {
       lines.push({ node: r.node, tex: toTex(r.node) });
       ed.setValue('');
       draw();
-      if (isFinalForm(r.node)) { finish(); return; }
+      if (mode.done(r.node)) { finish(); return; }
       msg.className = 'msg good';
       msg.textContent = 'Rétt! Haltu áfram.';
       ed.focus();
     };
 
     const hint = () => {
-      const s = nextStep(current());
+      const u = upcoming();
       msg.className = 'msg info';
-      msg.textContent = s ? 'Vísbending: ' + explain(s.kinds).join(' ') : 'Þetta er fullstytt.';
+      msg.textContent = u ? 'Vísbending: ' + explain(u.step.kinds).join(' ') : `Þetta er ${mode.doneWord}.`;
     };
 
+    const pushShown = (u) => lines.push({ node: u.step.node, tex: u.step.tex, shown: true, step: u.step, plan: u.plan, idx: u.idx });
+
     const showNext = () => {
-      const s = nextStep(current());
-      if (!s) return;
-      lines.push({ node: s.node, tex: s.tex, shown: true, step: s });
+      const u = upcoming();
+      if (!u) return;
+      pushShown(u);
       draw();
       msg.textContent = '';
-      if (isFinalForm(s.node)) finish();
+      if (!upcoming()) finish();
     };
 
     const showAll = () => {
-      let s;
-      while ((s = nextStep(current()))) lines.push({ node: s.node, tex: s.tex, shown: true, step: s });
+      let u;
+      while ((u = upcoming())) pushShown(u);
       draw();
       finish();
     };
 
     const inputBox = el('div', { class: 'panel' },
       el('p', { class: 'help' }, startFinal
-        ? 'Er hægt að einfalda þetta? Ef ekki, skrifaðu stæðuna óbreytta.'
+        ? mode.startDone
         : 'Skrifaðu næsta skref (eða fleiri skref í einu) og ýttu á Enter. Þú mátt sleppa skrefum ef þú treystir þér.'),
       ed.root,
       el('div', { class: 'row' },
@@ -495,7 +534,7 @@ function practiceView(c, presetExpr) {
   root.append(controls, area);
   if (presetExpr) {
     const r = tryParse(presetExpr);
-    if (!r.error) newProblem({ prompt: 'Einfaldaðu eins og hægt er:', expr: presetExpr, node: r.node });
+    if (!r.error) newProblem({ prompt: mode.prompt, expr: presetExpr, node: r.node });
   }
   return root;
 }
@@ -503,12 +542,13 @@ function practiceView(c, presetExpr) {
 // ---------- Prófæfing ----------
 
 function gradeAnswer(p, src) {
+  const mode = modeOf(p.chapter);
   const start = parse(p.expr);
   if (!src.trim()) return { ok: false, text: 'Ekkert svar.' };
   const r = tryParse(src);
   if (r.error) return { ok: false, text: r.error };
   if (!polyEqual(expand(r.node), expand(start))) return { ok: false, text: 'Rangt. ' + diagnose(start, r.node) };
-  if (!isFinalForm(r.node)) return { ok: false, text: 'Jafngilt, en ekki fullstytt. Kláraðu að einfalda.' };
+  if (!mode.done(r.node)) return { ok: false, text: mode.notDone };
   return { ok: true, text: 'Rétt!' };
 }
 
@@ -620,7 +660,7 @@ function examView() {
         problemHeader(it.p));
       if (!r) {
         card.append(
-          el('p', { class: 'help' }, 'Reiknaðu í eins mörgum línum og þú vilt. Enter bætir við línu. Síðasta línan er svarið þitt og á að vera fullstytt.'),
+          el('p', { class: 'help' }, `Reiknaðu í eins mörgum línum og þú vilt. Enter bætir við línu. Síðasta línan er svarið þitt og á að vera ${modeOf(it.p.chapter).doneWord}.`),
           it.linesEl,
           el('div', { class: 'row' },
             el('button', { class: 'btn ghost add-line', onclick: () => addLine(it).ed.focus() }, '+ Bæta við línu'),
@@ -643,7 +683,7 @@ function examView() {
           written.length ? work : el('div', { class: 'your-answer' }, 'Þitt svar: ', el('i', {}, 'ekkert')),
           el('p', { class: 'msg ' + (r.ok ? 'good' : 'bad') }, r.text),
           el('h3', {}, 'Lausn skref fyrir skref'),
-          stepper(parse(it.p.expr)));
+          stepper(parse(it.p.expr), modeOf(it.p.chapter)));
         const nextOpen = results.findIndex((x, i) => !x && i > idx);
         const anyOpen = results.findIndex((x) => !x);
         const target = nextOpen >= 0 ? nextOpen : anyOpen;

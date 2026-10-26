@@ -436,3 +436,7 @@ math-field::part(virtual-keyboard-toggle) { color: var(--muted); }
   .note-card table { display: block; overflow-x: auto; }
   .words td:first-child { width: auto; }
 }
+.section-chip { background: var(--purple); color: #fff; text-transform: none; letter-spacing: 0; font-size: .78rem; }
+.method-list { padding-left: 1.3em; }
+.method-list li { margin: 8px 0; }
+.method-list li::marker { color: var(--teal); font-weight: 900; }

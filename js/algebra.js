@@ -154,9 +154,9 @@ export function parse(src) {
 
 // ---------- Einliðir og margliður ----------
 
-const sortedVars = (v) => Object.keys(v).filter((k) => v[k] !== 0).sort();
-const monoKey = (v) => sortedVars(v).map((k) => k + '^' + v[k]).join('*');
-const mono = (c, v = {}) => ({ t: 'mono', c, v: Object.fromEntries(sortedVars(v).map((k) => [k, v[k]])) });
+export const sortedVars = (v) => Object.keys(v).filter((k) => v[k] !== 0).sort();
+export const monoKey = (v) => sortedVars(v).map((k) => k + '^' + v[k]).join('*');
+export const mono = (c, v = {}) => ({ t: 'mono', c, v: Object.fromEntries(sortedVars(v).map((k) => [k, v[k]])) });
 
 export function isMonoish(n) {
   switch (n.t) {
@@ -261,7 +261,7 @@ export function polyEqual(A, B) {
 const degree = (v) => Object.values(v).reduce((a, b) => a + b, 0);
 
 // Margliða -> hnútur í staðalformi (hæsta stig fyrst, svo stafrófsröð).
-function compareMono(a, b) {
+export function compareMono(a, b) {
   {
     const d = degree(b.v) - degree(a.v);
     if (d) return d;
@@ -393,7 +393,7 @@ export function toTex(n) {
           let juxt;
           if (simple && !n.atoms) juxt = true;
           else if (n.prod || n.atoms) juxt = false;
-          else juxt = par || (isVarish(f) && !prevPar && (isVarish(prev) || (i === 1 && prevNum)));
+          else juxt = par || (f.t === 'pow' && f.b.t === 'add') || (isVarish(f) && !prevPar && (isVarish(prev) || (i === 1 && prevNum)));
           out += juxt ? '' : '\\cdot ';
         }
         out += ft;

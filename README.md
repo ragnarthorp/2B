@@ -16,6 +16,7 @@ Kaflar sem eru komnir:
 |---|---|
 | 1.1 | Samlagning liðastærða |
 | 2.1 | Margföldun liðastærða |
+| 3.1 | Þáttun |
 
 ## Ritillinn
 
@@ -47,6 +48,7 @@ Prófin keyra öll sýnidæmin og 1800 handahófsdæmi og athuga að hvert skref
 | Skrá | Hlutverk |
 |---|---|
 | `js/algebra.js` | Les stæður, einfaldar skref fyrir skref, ber saman svör og greinir villur |
+| `js/factor.js` | Þáttun skref fyrir skref (sameiginlegur þáttur, samokaregla, ágiskunarregla) og athugun á hvort svar sé fullþáttað |
 | `js/generators.js` | Býr til æfingadæmi af handahófi fyrir hvern kafla |
 | `js/chapters.js` | Texti kaflanna og sýnidæmin |
 | `js/ui.js` | Ritill, birting stærðfræði og myndir |
